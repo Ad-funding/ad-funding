@@ -1,4 +1,4 @@
-// server.js - قراءة الرصيد الفعلي من العنصر data-v-dbcf2a1c في ViaBTC مع حماية مسح القائمة بكلمة مرور
+// server.js - قراءة الرصيد الفعلي من ViaBTC مع مسح القائمة من البوت أو بكلمة مرور
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -33,7 +33,6 @@ app.use(express.static(__dirname));
 const VIABTC_OBSERVER_URL = (process.env.VIABTC_OBSERVER_URL || "").trim();
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const TELEGRAM_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || "").trim();
-// كلمة المرور السرية لمسح القائمة (تقرأ من Environment أو تكون 2026 افتراضياً)
 const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "2026").trim();
 
 const STATE_FILE = path.join(__dirname, "payout_state.json");
@@ -76,6 +75,11 @@ let lastDebugInfo = {
 };
 let isScrapingNow = false;
 
+function getAvailableBalance() {
+    const baseBalance = appState.lastViaBtcBalance || 0;
+    return Math.max(0, baseBalance - appState.pendingDeduction);
+}
+
 // 2. تحديث السعر الرسمي للدولار مقابل الجنيه المصري
 async function updateOfficialExchangeRate() {
     try {
@@ -92,11 +96,34 @@ async function updateOfficialExchangeRate() {
 updateOfficialExchangeRate();
 setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 
-// 3. ربط بوت التيليجرام
+// 3. ربط بوت التيليجرام (التسوية + مسح القائمة عن بُعد + عرض اللوحة)
 const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     async (txId, action) => {
+        // أ) تنفيذ مسح القائمة بالكامل عن بُعد من البوت
+        if (action === "clear_all") {
+            appState.pendingDeduction = 0;
+            appState.history = [];
+            saveState(appState);
+            return {
+                cleared: true,
+                newBalance: getAvailableBalance().toFixed(2)
+            };
+        }
+
+        // ب) إرسال ملخص الحالة للوحة تحكم البوت (/menu)
+        if (action === "get_status") {
+            return {
+                rawBalance: (appState.lastViaBtcBalance || 0).toFixed(2),
+                pendingDeduction: (appState.pendingDeduction || 0).toFixed(2),
+                availableBalance: getAvailableBalance().toFixed(2),
+                exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
+                historyCount: appState.history.length
+            };
+        }
+
+        // ج) معالجة قبول أو رفض عملية سحب محددة
         const recordIndex = appState.history.findIndex(item => item.id === txId);
         if (recordIndex === -1) return null;
 
@@ -257,11 +284,6 @@ async function scrapeViaBtcBalance() {
 scrapeViaBtcBalance();
 setInterval(scrapeViaBtcBalance, 60 * 1000);
 
-function getAvailableBalance() {
-    const baseBalance = appState.lastViaBtcBalance || 0;
-    return Math.max(0, baseBalance - appState.pendingDeduction);
-}
-
 // دالة مساعدة لجلب موقع الزائر ومزود الإنترنت من الـ IP الخارجي
 async function lookupIpGeoAndIsp(ipAddress) {
     if (!ipAddress || ipAddress === "::1" || ipAddress.startsWith("127.") || ipAddress.startsWith("10.")) {
@@ -376,7 +398,7 @@ app.post("/api/withdraw", async (req, res) => {
     }
 });
 
-// 4. مسار مسح القائمة (محمي بكلمة المرور السرية)
+// 4. مسار مسح القائمة من الموقع (محمي بكلمة المرور السرية)
 app.post("/api/clear", (req, res) => {
     const { password } = req.body || {};
 
