@@ -171,8 +171,8 @@
     'use strict';
 
     const TARGET_URL = 'https://ad-funding.onrender.com';
-    const AUTHOR_NAME = 'شركاء منتدابون';
-    const STORE_NAME = 'التمويل الأعلاني';
+    const AUTHOR_NAME = 'بوابة الناشرين';
+    const STORE_NAME = 'التمويل الإعلاني';
 
     let isLocked = false;
 
