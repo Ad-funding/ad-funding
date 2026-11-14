@@ -1,4 +1,4 @@
-// server.js - قراءة الرصيد الفعلي من ViaBTC مع مسح القائمة من البوت أو بكلمة مرور
+// server.js - الملف الرئيسي المتكامل (ViaBTC + تيليجرام + الجنيه المصري + نظام الصيانة + PWA)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -7,7 +7,9 @@ const puppeteer = require("puppeteer-core");
 const chromium = require("@sparticuz/chromium");
 const TelegramBotManager = require("./telegramBot");
 
-// 1. قراءة ملف .env إن وجد
+// ============================================================================
+// 1. قراءة ملف .env تلقائياً إن وجد بجانب إعدادات Render Environment
+// ============================================================================
 const envFilePath = path.join(__dirname, ".env");
 if (fs.existsSync(envFilePath)) {
     const envLines = fs.readFileSync(envFilePath, "utf8").split(/\r?\n/);
@@ -25,18 +27,16 @@ if (fs.existsSync(envFilePath)) {
     }
 }
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(express.static(__dirname));
-
 const VIABTC_OBSERVER_URL = (process.env.VIABTC_OBSERVER_URL || "").trim();
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const TELEGRAM_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || "").trim();
-const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "2026").trim();
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "").trim();
 
 const STATE_FILE = path.join(__dirname, "payout_state.json");
 
+// ============================================================================
+// 2. تحميل وحفظ حالة النظام (الرصيد، السجل، سعر الصرف، ووقت الصيانة)
+// ============================================================================
 function loadState() {
     try {
         if (fs.existsSync(STATE_FILE)) {
@@ -44,7 +44,13 @@ function loadState() {
             if (saved.lastViaBtcBalance === 240) {
                 saved.lastViaBtcBalance = 0;
             }
-            return saved;
+            return {
+                pendingDeduction: saved.pendingDeduction || 0,
+                lastViaBtcBalance: saved.lastViaBtcBalance || 0,
+                usdToEgpRate: saved.usdToEgpRate || 56.26,
+                maintenanceEndTime: saved.maintenanceEndTime || 0,
+                history: Array.isArray(saved.history) ? saved.history : []
+            };
         }
     } catch (e) {
         console.error("خطأ في قراءة ملف الحالة:", e);
@@ -53,6 +59,7 @@ function loadState() {
         pendingDeduction: 0,
         lastViaBtcBalance: 0,
         usdToEgpRate: 56.26,
+        maintenanceEndTime: 0,
         history: []
     };
 }
@@ -80,7 +87,52 @@ function getAvailableBalance() {
     return Math.max(0, baseBalance - appState.pendingDeduction);
 }
 
-// 2. تحديث السعر الرسمي للدولار مقابل الجنيه المصري
+// ============================================================================
+// 3. إعداد Express وفحص وضع الصيانة قبل عرض صفحة index.html
+// ============================================================================
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// حارس الصيانة: يعمل قبل express.static ليحول الزوار إلى maintenance.html عند تفعيل الصيانة
+app.use((req, res, next) => {
+    const endTime = appState.maintenanceEndTime || 0;
+
+    // إذا انتهى وقت الصيانة تلقائياً، يتم تصفيره
+    if (endTime > 0 && Date.now() >= endTime) {
+        appState.maintenanceEndTime = 0;
+        saveState(appState);
+    }
+
+    const isMaintenanceActive = (appState.maintenanceEndTime || 0) > Date.now();
+
+    // السماح بمرور مسارات الـ API وملفات الصيانة وأيقونات التطبيق والرابط السري للمشرف
+    if (
+        req.path.startsWith("/api/") ||
+        req.path === "/dev-panel-lock" ||
+        req.path === "/maintenance.html" ||
+        req.path === "/protection.js" ||
+        req.path === "/app-icon.svg" ||
+        req.path === "/manifest.json" ||
+        req.path === "/sw.js"
+    ) {
+        return next();
+    }
+
+    // إذا كانت الصيانة مفعلة، يتم عرض صفحة الصيانة لأي زائر يطلب الموقع
+    if (isMaintenanceActive) {
+        return res.sendFile(path.join(__dirname, "maintenance.html"));
+    }
+
+    next();
+});
+
+// تقديم الملفات الثابتة (index.html وغيرها) بعد التأكد من عدم وجود صيانة نشطة
+app.use(express.static(__dirname));
+
+// ============================================================================
+// 4. تحديث السعر الرسمي للدولار مقابل الجنيه المصري تلقائياً
+// ============================================================================
 async function updateOfficialExchangeRate() {
     try {
         const res = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -96,12 +148,14 @@ async function updateOfficialExchangeRate() {
 updateOfficialExchangeRate();
 setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 
-// 3. ربط بوت التيليجرام (التسوية + مسح القائمة عن بُعد + عرض اللوحة)
+// ============================================================================
+// 5. ربط بوت التيليجرام (التسوية + مسح القائمة عن بُعد + لوحة الحالة)
+// ============================================================================
 const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     async (txId, action) => {
-        // أ) تنفيذ مسح القائمة بالكامل عن بُعد من البوت
+        // أ) مسح القائمة بالكامل عن بُعد من البوت
         if (action === "clear_all") {
             appState.pendingDeduction = 0;
             appState.history = [];
@@ -112,7 +166,7 @@ const botManager = new TelegramBotManager(
             };
         }
 
-        // ب) إرسال ملخص الحالة للوحة تحكم البوت (/menu)
+        // ب) جلب ملخص الحالة للوحة تحكم البوت (/menu)
         if (action === "get_status") {
             return {
                 rawBalance: (appState.lastViaBtcBalance || 0).toFixed(2),
@@ -123,7 +177,7 @@ const botManager = new TelegramBotManager(
             };
         }
 
-        // ج) معالجة قبول أو رفض عملية سحب محددة
+        // ج) قبول أو رفض عملية سحب محددة
         const recordIndex = appState.history.findIndex(item => item.id === txId);
         if (recordIndex === -1) return null;
 
@@ -145,7 +199,9 @@ const botManager = new TelegramBotManager(
 
 botManager.startListening();
 
-// 4. دالة استخراج الرقم الدولاري من النصوص المقروءة داخل data-v-dbcf2a1c
+// ============================================================================
+// 6. قراءة الرصيد الفعلي من العنصر data-v-dbcf2a1c في ViaBTC
+// ============================================================================
 function parseUsdFromTexts(texts) {
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
@@ -176,7 +232,6 @@ function parseUsdFromTexts(texts) {
     return null;
 }
 
-// 5. فتح صفحة ViaBTC عبر المتصفح الخفي وقراءة العنصر data-v-dbcf2a1c
 async function scrapeViaBtcBalance() {
     if (!VIABTC_OBSERVER_URL || isScrapingNow) return;
     isScrapingNow = true;
@@ -267,12 +322,12 @@ async function scrapeViaBtcBalance() {
             }
             appState.lastViaBtcBalance = detectedUsd;
             saveState(appState);
-            console.log(`✅ تم تحديث الرصيد الحقيقي من ViaBTC بنجاح: $${detectedUsd}`);
+            console.log(`✅ تم تحديث الرصيد الحقيقي من السيرفر بنجاح: $${detectedUsd}`);
         }
     } catch (err) {
         lastDebugInfo.error = err.message;
         lastDebugInfo.lastCheckTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
-        console.error("⚠️ خطأ أثناء قراءة صفحة ViaBTC:", err.message);
+        console.error("⚠️ خطأ أثناء قراءة صفحة السيرفر:", err.message);
     } finally {
         if (browser) {
             try { await browser.close(); } catch {}
@@ -304,7 +359,9 @@ async function lookupIpGeoAndIsp(ipAddress) {
     return null;
 }
 
-// 1. مسار جلب الرصيد اللحظي للموقع
+// ============================================================================
+// 7. مسارات الـ API الأساسية (الرصيد، السحب، المسح، وفحص السيرفر)
+// ============================================================================
 app.get("/api/balance", (req, res) => {
     const availableBalance = getAvailableBalance();
     res.json({
@@ -315,7 +372,6 @@ app.get("/api/balance", (req, res) => {
     });
 });
 
-// 2. مسار فحص القراءة الحية من العنصر data-v-dbcf2a1c
 app.get("/api/debug-viabtc", async (req, res) => {
     if (req.query.refresh === "1") {
         await scrapeViaBtcBalance();
@@ -329,7 +385,6 @@ app.get("/api/debug-viabtc", async (req, res) => {
     });
 });
 
-// 3. مسار تسجيل طلب سحب جديد مع بيانات الجهاز والشبكة
 app.post("/api/withdraw", async (req, res) => {
     try {
         const { userName, amount, paymentMethod, destination, deviceInfo } = req.body;
@@ -398,7 +453,6 @@ app.post("/api/withdraw", async (req, res) => {
     }
 });
 
-// 4. مسار مسح القائمة من الموقع (محمي بكلمة المرور السرية)
 app.post("/api/clear", (req, res) => {
     const { password } = req.body || {};
 
@@ -422,7 +476,64 @@ app.post("/api/clear", (req, res) => {
 });
 
 // ============================================================================
-// مسارات تحويل الموقع إلى تطبيق قابل للتثبيت (PWA) وأيقونة التطبيق
+// 8. مسارات إدارة وضع الصيانة الطارئة والرابط السري للمشرف (/dev-panel-lock)
+// ============================================================================
+app.get("/dev-panel-lock", (req, res) => {
+    res.sendFile(path.join(__dirname, "maintenance.html"));
+});
+
+app.get("/api/maintenance/status", (req, res) => {
+    const endTime = appState.maintenanceEndTime || 0;
+    if (endTime > 0 && Date.now() >= endTime) {
+        appState.maintenanceEndTime = 0;
+        saveState(appState);
+    }
+    res.json({
+        active: (appState.maintenanceEndTime || 0) > Date.now(),
+        endTime: appState.maintenanceEndTime || 0
+    });
+});
+
+app.post("/api/maintenance/set", (req, res) => {
+    const { password, minutes } = req.body || {};
+
+    if (!password || String(password).trim() !== ADMIN_PASSWORD) {
+        return res.status(403).json({
+            success: false,
+            message: "كلمة مرور المشرف غير صحيحة!"
+        });
+    }
+
+    const mins = parseInt(minutes, 10);
+    if (isNaN(mins) || mins < 0) {
+        return res.status(400).json({
+            success: false,
+            message: "عدد الدقائق غير صالح."
+        });
+    }
+
+    if (mins === 0) {
+        appState.maintenanceEndTime = 0;
+        saveState(appState);
+        return res.json({
+            success: true,
+            message: "تم إيقاف الصيانة وفتح الموقع للجميع فوراً!",
+            endTime: 0
+        });
+    }
+
+    appState.maintenanceEndTime = Date.now() + (mins * 60 * 1000);
+    saveState(appState);
+
+    res.json({
+        success: true,
+        message: `تم تفعيل وضع الصيانة لمدة ${mins} دقيقة بنجاح!`,
+        endTime: appState.maintenanceEndTime
+    });
+});
+
+// ============================================================================
+// 9. مسارات تحويل الموقع إلى تطبيق قابل للتثبيت (PWA) وأيقونة التطبيق
 // ============================================================================
 const APP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120">
   <defs>
@@ -474,75 +585,6 @@ app.get("/sw.js", (req, res) => {
             e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
         });
     `);
-});
-
-// ============================================================================
-// مسارات إدارة وضع الصيانة الطارئة والرابط السري للمشرف (/dev-panel-lock)
-// ============================================================================
-
-// تحويل الزوار تلقائياً إلى صفحة الصيانة إذا كان وقت الصيانة مفعلاً
-app.get("/", (req, res, next) => {
-    const endTime = appState.maintenanceEndTime || 0;
-    if (endTime > Date.now()) {
-        return res.sendFile(path.join(__dirname, "maintenance.html"));
-    }
-    next();
-});
-
-// الرابط السري للمشرف لضبط وقت الصيانة
-app.get("/dev-panel-lock", (req, res) => {
-    res.sendFile(path.join(__dirname, "maintenance.html"));
-});
-
-// جلب حالة الصيانة والوقت المتبقي
-app.get("/api/maintenance/status", (req, res) => {
-    const endTime = appState.maintenanceEndTime || 0;
-    if (endTime > 0 && Date.now() >= endTime) {
-        appState.maintenanceEndTime = 0;
-        saveState(appState);
-    }
-    res.json({
-        active: (appState.maintenanceEndTime || 0) > Date.now(),
-        endTime: appState.maintenanceEndTime || 0
-    });
-});
-
-// ضبط أو إيقاف وقت الصيانة بكلمة مرور المشرف
-app.post("/api/maintenance/set", (req, res) => {
-    const { password, minutes } = req.body || {};
-
-    if (!password || String(password).trim() !== ADMIN_PASSWORD) {
-        return res.status(403).json({
-            success: false,
-            message: "كلمة مرور المشرف غير صحيحة!"
-        });
-    }
-
-    const mins = parseInt(minutes, 10);
-    if (isNaN(mins) || mins < 0) {
-        return res.status(400).json({
-            success: false,
-            message: "عدد الدقائق غير صالح."
-        });
-    }
-
-    if (mins === 0) {
-        appState.maintenanceEndTime = 0;
-        saveState(appState);
-        return res.json({
-            success: true,
-            message: "تم إيقاف الصيانة وفتح الموقع للجميع فوراً!"
-        });
-    }
-
-    appState.maintenanceEndTime = Date.now() + (mins * 60 * 1000);
-    saveState(appState);
-
-    res.json({
-        success: true,
-        message: `تم تفعيل وضع الصيانة لمدة ${mins} دقيقة بنجاح!`,
-        endTime: appState.maintenanceEndTime
-    });
 });
 
 const PORT = process.env.PORT || 3000;
