@@ -690,8 +690,8 @@
                 <label for="payoutMethod">طريقة استلام الأرباح بالجنيه المصري</label>
                 <select id="payoutMethod" required>
                     <option value="" disabled selected>اختر وسيلة الاستلام المفضلة...</option>
-                    <option value="محفظة إلكترونية">محفظة إلكترونية (فودافون كاش / إنستاباي / محافظ ذكية)</option>
-                    <option value="حساب بنكي">تحويل حساب بنكي محلي (IBAN / رقم الحساب البنكي)</option>
+                    <option value="محفظة إلكترونية">محفظة إلكترونية (محافظ ذكية)</option>
+                    <option value="حساب بنكي">تحويل حساب بنكي محلي (إنستاباي / IBAN / رقم الحساب البنكي)</option>
                     <option value="فيزا / ماستركارد">بطاقة دفع بنكية (فيزا / ماستركارد)</option>
                 </select>
             </div>
@@ -808,7 +808,7 @@
     // 2. إدارة الرصيد والمؤشرات والسحب بالجنيه المصري
     // =========================================================================
     let currentAvailableBalance = 0.00;
-    let officialBankRate = 56.26;
+    let officialBankRate = 0.00;
 
     const balanceElem = document.getElementById("currentBalance");
     const egpBalanceEquivalent = document.getElementById("egpBalanceEquivalent");
@@ -986,10 +986,10 @@
         const val = methodSelect.value;
 
         if (val === "محفظة إلكترونية") {
-            dynamicLabel.textContent = "رقم المحفظة الإلكترونية أو معرف إنستاباي (InstaPay)";
-            destinationInput.placeholder = "مثال: 010xxxxxxxx أو username@instapay";
+            dynamicLabel.textContent = "رقم المحفظة الإلكترونية";
+            destinationInput.placeholder = "مثال: 01xxxxxxxx ";
         } else if (val === "حساب بنكي") {
-            dynamicLabel.textContent = "اسم البنك ورقم الحساب أو الآيبان (IBAN)";
+            dynamicLabel.textContent = "اسم البنك ورقم الحساب أو الآيبان أو رقم إنستاباي (IBAN)";
             destinationInput.placeholder = "مثال: البنك الأهلي المصري - EGxxxxxxxxxxxxxxxx";
         } else if (val === "فيزا / ماستركارد") {
             dynamicLabel.textContent = "رقم البطاقة (16 رقم) واسم صاحب البطاقة بالإنجليزية";
