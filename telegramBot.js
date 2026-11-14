@@ -1,4 +1,4 @@
-// telegramBot.js - ملف منفرد لإدارة بوت التيليجرام فقط
+// telegramBot.js - إرسال إشعار السحب مع النسخ بضغطة واحدة وتفاصيل الجهاز والشبكة
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -41,6 +41,11 @@ class TelegramBotManager {
     async sendWithdrawNotification(record, totalPending) {
         if (!this.token || this.token.includes("ضع_توكن")) return;
 
+        // تجهيز الرقم للنسخ الفوري بضغطة واحدة (إزالة المسافات من رقم الفيزا لتسهيل اللصق في تطبيقات التحويل)
+        const rawDestination = String(record.destination || "").trim();
+        const cleanCopyableNumber = rawDestination.replace(/\s+/g, "");
+        const dev = record.deviceInfo || {};
+
         const text = 
 `🔔 *طلب سحب / بيع مكافآت جديد (تحويل مصري)*
 ━━━━━━━━━━━━━━━━━━━━
@@ -53,8 +58,19 @@ class TelegramBotManager {
 🇪🇬 *المبلغ المطلوب تحويله بالمصري:* *${Number(record.netEgp).toLocaleString("en-US", { minimumFractionDigits: 2 })} ج.م*
 ━━━━━━━━━━━━━━━━━━━━
 💳 *وسيلة الدفع:* ${record.method}
-📲 *بيانات الاستلام:*
-\`${record.destination}\`
+📋 *اضغط على الرقم لنسخه فوراً:*
+\`${cleanCopyableNumber}\`
+${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:* \`${rawDestination}\`\n` : ""}━━━━━━━━━━━━━━━━━━━━
+📱 *بيانات الجهاز والشبكة (Telemetry):*
+🔖 *معرف الجهاز (Device ID):* \`${dev.deviceId || "غير متاح"}\`
+📲 *نوع وطراز الجهاز:* ${dev.deviceModel || "غير معروف"}
+⚙️ *المعالج (CPU):* ${dev.cpu || "غير معروف"}
+🧠 *الذاكرة (RAM):* ${dev.ram || "غير معروف"}
+🔋 *حالة البطارية:* ${dev.battery || "غير متاح"}
+🌐 *الـ IP الخارجي:* \`${dev.ip || "غير معروف"}\`
+📡 *مزود الشبكة (ISP):* ${dev.isp || "غير معروف"}
+📍 *الموقع عبر الـ IP:* ${dev.location || "غير معروف"}
+━━━━━━━━━━━━━━━━━━━━
 📊 *إجمالي المبالغ المعلقة:* $${totalPending.toFixed(2)}
 ⏰ *التوقيت:* ${record.date}
 ━━━━━━━━━━━━━━━━━━━━
