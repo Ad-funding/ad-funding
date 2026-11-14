@@ -116,7 +116,7 @@
         if (isInputField(event.target)) return;
         event.preventDefault();
         event.stopPropagation();
-        showCustomNotification('محتوى التمويل الإعلاني محمي بموجب حقوق الطبع والنشر.');
+        showCustomNotification('محتوى التمويل محمي بموجب حقوق الطبع والنشر.');
         return false;
     }, true);
 
