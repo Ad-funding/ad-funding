@@ -1,4 +1,4 @@
-// server.js - قراءة الرصيد الفعلي من العنصر data-v-dbcf2a1c في ViaBTC
+// server.js - السيرفر الرئيسي المدمج بالكامل (ViaBTC + Telegram + Telemetry + PWA)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -40,7 +40,6 @@ function loadState() {
     try {
         if (fs.existsSync(STATE_FILE)) {
             const saved = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-            // إزالة الرقم التجريبي القديم 240 إذا كان عالقاً من النسخة السابقة
             if (saved.lastViaBtcBalance === 240) {
                 saved.lastViaBtcBalance = 0;
             }
@@ -117,9 +116,8 @@ const botManager = new TelegramBotManager(
 
 botManager.startListening();
 
-// 4. دالة استخراج الرقم الدولاري من النصوص المقروءة داخل data-v-dbcf2a1c
+// 4. استخراج الرقم الدولاري من النصوص المقروءة داخل data-v-dbcf2a1c
 function parseUsdFromTexts(texts) {
-    // الأولوية للنصوص التي تحتوي على علامة الدولار أو كلمة USD أو ≈
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
         const matchWithCurrency = clean.match(/(?:\$|≈|USD)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*(?:USD|\$)/i);
@@ -129,7 +127,6 @@ function parseUsdFromTexts(texts) {
         }
     }
 
-    // البحث عن أي رقم عشري يمثل الرصيد داخل العنصر data-v-dbcf2a1c
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
         if (/^[0-9]+\.[0-9]{2,8}$/.test(clean)) {
@@ -138,7 +135,6 @@ function parseUsdFromTexts(texts) {
         }
     }
 
-    // البحث العام عن رقم داخل النصوص
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
         const numMatch = clean.match(/([0-9]+\.[0-9]+)/);
@@ -170,13 +166,11 @@ async function scrapeViaBtcBalance() {
 
         const page = await browser.newPage();
 
-        // ضبط الكوكيز ليعتمد الموقع عملة USD تلقائياً
         await page.setCookie(
             { name: "currency", value: "USD", domain: ".viabtc.com" },
             { name: "legal_currency", value: "USD", domain: ".viabtc.com" }
         );
 
-        // التقاط أي JSON قادم من سيرفر ViaBTC أثناء فتح الصفحة
         page.on("response", async (response) => {
             const rUrl = response.url();
             if (rUrl.includes("/res/") && response.status() === 200) {
@@ -195,21 +189,17 @@ async function scrapeViaBtcBalance() {
             timeout: 35000
         });
 
-        // انتظار ظهور العنصر data-v-dbcf2a1c في الصفحة بعد عمل الجافاسكربت
         try {
             await page.waitForSelector("[data-v-dbcf2a1c]", { timeout: 12000 });
-            // انتظار إضافي قصير لضمان اكتمال كتابة الرقم داخل العنصر
             await new Promise(r => setTimeout(r, 2500));
         } catch {}
 
-        // قراءة جميع العناصر التي تحمل السمة data-v-dbcf2a1c
         const domResult = await page.evaluate(() => {
             const nodes = Array.from(document.querySelectorAll("[data-v-dbcf2a1c]"));
             const texts = nodes
                 .map(el => (el.innerText || el.textContent || "").trim())
                 .filter(t => t.length > 0 && /[0-9]/.test(t));
 
-            // قراءة احتياطية لأي عنصر يحتوي على USD في منطقة الملخص
             const mainArea = document.querySelector(".l-observer-main");
             const mainText = mainArea ? mainArea.innerText : "";
 
@@ -218,12 +208,10 @@ async function scrapeViaBtcBalance() {
 
         let detectedUsd = parseUsdFromTexts(domResult.texts);
 
-        // إذا لم يُستخرج من النص المباشر، نفحص текста منطقة الملخص كاملة
         if (detectedUsd === null && domResult.mainText) {
             detectedUsd = parseUsdFromTexts(domResult.mainText.split("\n"));
         }
 
-        // إذا التقطنا JSON من API المحفظة الداخلي لـ ViaBTC نفحصه أيضاً
         if (detectedUsd === null && interceptedApis.length > 0) {
             for (const apiItem of interceptedApis) {
                 const str = JSON.stringify(apiItem.data);
@@ -244,7 +232,6 @@ async function scrapeViaBtcBalance() {
         };
 
         if (detectedUsd !== null && !isNaN(detectedUsd)) {
-            // المزامنة الذكية عند السحب الفعلي من ViaBTC
             if (appState.lastViaBtcBalance > 0 && detectedUsd < appState.lastViaBtcBalance) {
                 const diff = appState.lastViaBtcBalance - detectedUsd;
                 appState.pendingDeduction = Math.max(0, appState.pendingDeduction - diff);
@@ -265,7 +252,6 @@ async function scrapeViaBtcBalance() {
     }
 }
 
-// تشغيل القراءة فوراً عند بدء السيرفر، وتكرارها كل 60 ثانية في الخلفية
 scrapeViaBtcBalance();
 setInterval(scrapeViaBtcBalance, 60 * 1000);
 
@@ -274,7 +260,27 @@ function getAvailableBalance() {
     return Math.max(0, baseBalance - appState.pendingDeduction);
 }
 
-// 1. مسار جلب الرصيد اللحظي للموقع
+// 6. دالة فحص الـ IP الخارجي ومزود الشبكة والموقع الجغرافي من السيرفر
+async function lookupIpGeoAndIsp(ipAddress) {
+    if (!ipAddress || ipAddress === "::1" || ipAddress.startsWith("127.") || ipAddress.startsWith("10.")) {
+        return null;
+    }
+    try {
+        const cleanIp = ipAddress.split(",")[0].trim();
+        const res = await fetch(`https://ipwho.is/${cleanIp}`);
+        const data = await res.json();
+        if (data && data.success) {
+            return {
+                ip: cleanIp,
+                isp: data.connection?.isp || data.connection?.org || "غير محدد",
+                location: `${data.country || ""} - ${data.region || ""} - ${data.city || ""}`.replace(/^ - | - $/g, "")
+            };
+        }
+    } catch (e) {}
+    return null;
+}
+
+// مسار جلب الرصيد اللحظي للموقع
 app.get("/api/balance", (req, res) => {
     const availableBalance = getAvailableBalance();
     res.json({
@@ -285,7 +291,7 @@ app.get("/api/balance", (req, res) => {
     });
 });
 
-// 2. مسار فحص القراءة الحية من العنصر data-v-dbcf2a1c
+// مسار فحص القراءة الحية من العنصر data-v-dbcf2a1c
 app.get("/api/debug-viabtc", async (req, res) => {
     if (req.query.refresh === "1") {
         await scrapeViaBtcBalance();
@@ -299,10 +305,10 @@ app.get("/api/debug-viabtc", async (req, res) => {
     });
 });
 
-// 3. مسار تسجيل طلب سحب جديد
+// مسار تسجيل طلب سحب جديد (مدمج معه بيانات الجهاز والبطارية والمعالج والـ IP)
 app.post("/api/withdraw", async (req, res) => {
     try {
-        const { userName, amount, paymentMethod, destination } = req.body;
+        const { userName, amount, paymentMethod, destination, deviceInfo } = req.body;
         const requestedAmount = parseFloat(amount);
         const availableBalance = getAvailableBalance();
         const currentRate = await updateOfficialExchangeRate();
@@ -313,6 +319,25 @@ app.post("/api/withdraw", async (req, res) => {
                 message: "المبلغ المطلوب غير صالح أو يتجاوز الرصيد المتاح."
             });
         }
+
+        // التقاط الـ IP الخارجي من السيرفر كاحتياطي واستكمال بيانات الموقع ومزود الشبكة
+        const forwardedIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+        const clientIp = deviceInfo?.ip && deviceInfo.ip !== "غير معروف" ? deviceInfo.ip : forwardedIp;
+
+        let finalDeviceInfo = { ...(deviceInfo || {}) };
+        if (!finalDeviceInfo.isp || finalDeviceInfo.isp === "غير معروف" || !finalDeviceInfo.location || finalDeviceInfo.location === "غير معروف") {
+            const serverGeo = await lookupIpGeoAndIsp(clientIp);
+            if (serverGeo) {
+                finalDeviceInfo.ip = serverGeo.ip;
+                if (!finalDeviceInfo.isp || finalDeviceInfo.isp === "غير معروف") {
+                    finalDeviceInfo.isp = serverGeo.isp;
+                }
+                if (!finalDeviceInfo.location || finalDeviceInfo.location === "غير معروف") {
+                    finalDeviceInfo.location = serverGeo.location;
+                }
+            }
+        }
+        finalDeviceInfo.ip = finalDeviceInfo.ip || clientIp || "غير معروف";
 
         const feeUsd = requestedAmount * 0.25;
         const netUsd = requestedAmount - feeUsd;
@@ -331,6 +356,7 @@ app.post("/api/withdraw", async (req, res) => {
             net: netUsd.toFixed(2),
             exchangeRate: currentRate.toFixed(2),
             netEgp: netEgp.toFixed(2),
+            deviceInfo: finalDeviceInfo,
             status: "pending",
             date: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })
         };
@@ -353,7 +379,7 @@ app.post("/api/withdraw", async (req, res) => {
     }
 });
 
-// 4. مسار مسح القائمة
+// مسار مسح القائمة
 app.post("/api/clear", (req, res) => {
     appState.pendingDeduction = 0;
     appState.history = [];
