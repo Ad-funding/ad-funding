@@ -570,8 +570,8 @@
                 <label for="payoutMethod">طريقة استلام الأرباح بالجنيه المصري</label>
                 <select id="payoutMethod" required>
                     <option value="" disabled selected>اختر وسيلة الاستلام المفضلة...</option>
-                    <option value="محفظة إلكترونية">محفظة إلكترونية (فودافون كاش / إنستاباي / محافظ ذكية)</option>
-                    <option value="حساب بنكي">تحويل حساب بنكي محلي (IBAN / رقم الحساب البنكي)</option>
+                    <option value="محفظة إلكترونية">محفظة إلكترونية (محافظ ذكية)</option>
+                    <option value="حساب بنكي">تحويل حساب بنكي محلي (إنستاباي / IBAN / رقم الحساب البنكي)</option>
                     <option value="فيزا / ماستركارد">بطاقة دفع بنكية (فيزا / ماستركارد)</option>
                 </select>
             </div>
@@ -629,8 +629,8 @@
     const RENDER_SERVER_URL = "https://your-app.onrender.com";
     const API_BASE = RENDER_SERVER_URL.includes("your-app") ? "" : RENDER_SERVER_URL;
 
-    let currentAvailableBalance = 240.00;
-    let officialBankRate = 56.26; // السعر الرسمي المعتمد للبنوك
+    let currentAvailableBalance = 0.00;
+    let officialBankRate = 0.00; // السعر الرسمي المعتمد للبنوك
 
     const balanceElem = document.getElementById("currentBalance");
     const egpBalanceEquivalent = document.getElementById("egpBalanceEquivalent");
