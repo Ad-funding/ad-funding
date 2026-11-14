@@ -1,4 +1,4 @@
-let vmP=typeof globalThis!=='undefined'?globalThis:typeof g<!-- بداية نظام حماية التمويل الاعلاني الشامل -->
+<!-- بداية نظام حماية متجر حكايات الشامل -->
   
 (function () {
   'use strict';
@@ -39,7 +39,7 @@ let vmP=typeof globalThis!=='undefined'?globalThis:typeof g<!-- بداية نظ�
     if (key === 'f12' || key === 'printscreen') {
       event.preventDefault();
       event.stopPropagation();
-      showCustomNotification('محتوى التمويل الأعلاني محمي بموجب حقوق الطبع والنشر.');
+      showCustomNotification('محتوى متجر حكايات محمي بموجب حقوق الطبع والنشر.');
       return false;
     }
 
@@ -55,7 +55,7 @@ let vmP=typeof globalThis!=='undefined'?globalThis:typeof g<!-- بداية نظ�
   window.addEventListener('contextmenu', function (event) {
     if (isInputField(event.target)) return;
     event.preventDefault();
-    showCustomNotification('محتوى التمويل الأعلاني محمي بموجب حقوق الطبع والنشر.');
+    showCustomNotification('محتوى متجر حكايات محمي بموجب حقوق الطبع والنشر.');
   }, true);
 
   // 5. منع تحديد النص، النسخ، السحب
@@ -125,14 +125,14 @@ let vmP=typeof globalThis!=='undefined'?globalThis:typeof g<!-- بداية نظ�
   }
 })();
 
-<!-- نهاية نظام حماية التمويل الأعلاني الشامل -->
+<!-- نهاية نظام حماية متجر حكايات الشامل -->
 (function () {
   'use strict';
 
   // البيانات المطلوبة للتحقق
-  const TARGET_URL = 'https://ad-funding.onrender.com';
-  const AUTHOR_NAME = 'بوابة الناشرين';
-  const STORE_NAME = 'التمويل الأعلاني';
+  const TARGET_URL = 'https://tales-shop.onrender.com';
+  const AUTHOR_NAME = 'المهندس محمد بوكس';
+  const STORE_NAME = 'متــجر حكـــايات';
 
   // وظيفة إغلاق الصفحة وحظر التشغيل نهائياً
   function lockPage() {
@@ -252,5 +252,5 @@ let vmP=typeof globalThis!=='undefined'?globalThis:typeof g<!-- بداية نظ�
   window.addEventListener('DOMContentLoaded', verifyRights);
   window.addEventListener('load', verifyRights);
   setInterval(verifyRights, 800);
-  
+
 })();
