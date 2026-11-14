@@ -3,35 +3,911 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ad Funding Platform - تمويل الحملات الإعلانية</title>
+    <title>بوابة الناشرين | عوائد الحملات الإعلانية والمكافآت الترويجية</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Tahoma, sans-serif; }
-        body { background-color: #0d1117; color: #c9d1d9; line-height: 1.6; }
-        header { background: #161b22; padding: 20px; text-align: center; border-bottom: 1px solid #30363d; }
-        header h1 { color: #58a6ff; font-size: 24px; }
-        .hero { text-align: center; padding: 80px 20px; }
-        .hero h2 { font-size: 36px; color: #ffffff; margin-bottom: 15px; }
-        .hero p { color: #8b949e; margin-bottom: 30px; font-size: 18px; max-width: 600px; margin-left: auto; margin-right: auto; }
-        .btn { background: #238636; color: white; padding: 14px 35px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; text-decoration: none; display: inline-block; font-weight: bold; }
-        .btn:hover { background: #2ea043; }
-        footer { text-align: center; padding: 20px; margin-top: 50px; border-top: 1px solid #30363d; color: #8b949e; font-size: 14px; }
+        :root {
+            --bg-dark: #070b14;
+            --card-bg: rgba(17, 24, 39, 0.78);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.35);
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.25);
+            --warning: #f59e0b;
+            --danger: #f43f5e;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --input-bg: rgba(10, 15, 29, 0.85);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Cairo', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2.5rem 1rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .bg-mesh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.18) 0%, transparent 45%),
+                radial-gradient(circle at 85% 75%, rgba(16, 185, 129, 0.14) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 55%),
+                linear-gradient(180deg, #070b14 0%, #0c1222 100%);
+            background-attachment: fixed;
+        }
+
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(circle at center, black 40%, transparent 90%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 760px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .network-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            padding: 4px 14px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            color: #60a5fa;
+            margin-bottom: 1rem;
+        }
+
+        header h1 {
+            font-size: 1.9rem;
+            font-weight: 800;
+            margin-bottom: 0.4rem;
+            background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* مؤشرات الأداء الإعلاني */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            padding: 1.1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .metric-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .metric-val {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .metric-trend {
+            font-size: 0.72rem;
+            color: var(--accent);
+        }
+
+        /* بطاقة الرصيد */
+        .balance-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            border-radius: 20px;
+            padding: 2.2rem 1.8rem;
+            text-align: center;
+            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.5), 0 0 20px -5px var(--primary-glow);
+            margin-bottom: 1.8rem;
+            backdrop-filter: blur(16px);
+        }
+
+        .balance-title {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .balance-amount {
+            font-size: 3.2rem;
+            font-weight: 800;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            text-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        .currency-symbol {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .egp-equivalent-bar {
+            margin-top: 0.4rem;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+
+        .payout-cycle {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--accent);
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-top: 0.8rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent);
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.85); }
+        }
+
+        .form-card, .history-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(14px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin-bottom: 1.8rem;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .card-header h3 {
+            font-size: 1.15rem;
+            color: #fff;
+        }
+
+        .bank-rate-badge {
+            background: rgba(59, 130, 246, 0.14);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--card-border);
+            background: var(--input-bg);
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: left 1rem center;
+            background-size: 1.1em;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .fee-card {
+            background: rgba(10, 15, 29, 0.75);
+            border: 1px dashed rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin: 1.5rem 0;
+        }
+
+        .fee-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.88rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .fee-row.total-egp {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 800;
+            color: #fff;
+            font-size: 1.15rem;
+        }
+
+        .fee-danger { color: var(--danger); }
+        .fee-usd { color: #cbd5e1; font-weight: 600; }
+        .fee-net-egp { color: var(--accent); font-weight: 800; }
+
+        .btn-submit {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 15px var(--primary-glow);
+            transition: all 0.2s ease;
+        }
+
+        .btn-submit:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-clear {
+            background: rgba(244, 63, 94, 0.12);
+            color: #fb7185;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            padding: 0.45rem 1rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-clear:hover {
+            background: rgba(244, 63, 94, 0.25);
+            color: #fff;
+        }
+
+        .withdraw-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .withdraw-item {
+            background: rgba(10, 15, 29, 0.75);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1rem 1.2rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .withdraw-item.rejected-item {
+            border-color: rgba(244, 63, 94, 0.25);
+            opacity: 0.8;
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .item-title {
+            font-weight: 700;
+            color: #fff;
+            font-size: 0.95rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge-pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            font-size: 0.74rem;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+
+        .badge-approved {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            font-size: 0.74rem;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+
+        .badge-rejected {
+            background: rgba(244, 63, 94, 0.15);
+            color: #fb7185;
+            border: 1px solid rgba(244, 63, 94, 0.35);
+            font-size: 0.74rem;
+            padding: 2px 10px;
+            border-radius: 12px;
+        }
+
+        .item-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .item-amounts {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            text-align: left;
+        }
+
+        .amount-box {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .amount-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .amount-gross {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--danger);
+        }
+
+        .amount-refunded {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+
+        .amount-net-egp {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border: 1px dashed var(--card-border);
+            border-radius: 12px;
+        }
+
+        .alert-box {
+            display: none;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-top: 1.2rem;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .alert-danger {
+            background: rgba(244, 63, 94, 0.12);
+            color: #fb7185;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+        }
     </style>
 </head>
 <body>
 
+<div class="bg-mesh"></div>
+<div class="bg-grid"></div>
+
+<div class="container">
     <header>
-        <h1>Ad-Funding Platform</h1>
+        <div class="network-tag">
+            <span>●</span> شبكة العوائد الإعلانية والشراكات الرقمية
+        </div>
+        <h1>لوحة تحكم عوائد التمويل والمكافآت</h1>
+        <p>نظام التوزيع البرمجي لأرباح المشاهدات والتحويل المباشر بالجنيه المصري</p>
     </header>
 
-    <div class="hero">
-        <h2>منصتك الذكية لتمويل الحملات الإعلانية</h2>
-        <p>نساعد الشركات والمتاجر على توسيع نطاق أعمالهم وزيادة المبيعات عبر توفير ميزانيات إعلانية مرنة ومدعومة.</p>
-        <a href="#apply" class="btn">اطلب التمويل الإعلاني الآن</a>
+    <!-- مؤشرات الأداء الإعلاني المتفاعلة -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label">مرات الظهور (Impressions)</div>
+            <div class="metric-val" id="metricImpressions">--</div>
+            <div class="metric-trend" id="trendImpressions">▲ جاري الحساب...</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">متوسط eCPM</div>
+            <div class="metric-val" id="metricEcpm">--</div>
+            <div class="metric-trend">▲ استقرار العائد</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">نسبة التفاعل (CTR)</div>
+            <div class="metric-val" id="metricCtr">--</div>
+            <div class="metric-trend">● متوافق مع المعايير</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">الحملات الممولة النشطة</div>
+            <div class="metric-val" id="metricCampaigns">--</div>
+            <div class="metric-trend">● رعاية مباشرة معتمدة</div>
+        </div>
     </div>
 
-    <footer>
-        <p>&copy; 2026 Ad-Funding. All rights reserved.</p>
-    </footer>
+    <!-- بطاقة الرصيد المستحق -->
+    <div class="balance-card">
+        <div class="balance-title">إجمالي عوائد التمويل المتاحة للصرف الفوري</div>
+        <div class="balance-amount">
+            <span id="currentBalance">--.--</span>
+            <span class="currency-symbol">$</span>
+        </div>
+        <div class="egp-equivalent-bar" id="egpBalanceEquivalent">
+            ما يعادل تقريباً: -- ج.م (بسعر البنك الرسمي)
+        </div>
+        <div class="payout-cycle">
+            <span class="status-dot"></span>
+            جاهزية السيولة الإعلانية: متزامنة لحظياً مع بوابة التسوية
+        </div>
+    </div>
 
+    <!-- بطاقة طلب الصرف والسحب -->
+    <div class="form-card">
+        <div class="card-header">
+            <h3>طلب سحب وتحويل الأرباح (بالجنيه المصري)</h3>
+            <span class="bank-rate-badge">سعر الصرف الرسمي: <strong id="bankRateDisplay">56.26</strong> ج.م</span>
+        </div>
+
+        <form id="payoutForm">
+            <div class="form-group">
+                <label for="userName">اسم الناشر / المعرف</label>
+                <input type="text" id="userName" placeholder="أدخل اسمك أو معرف الحساب" required>
+            </div>
+
+            <div class="form-group">
+                <label for="withdrawAmount">المبلغ المطلوب سحبه من الرصيد بالدولار ($)</label>
+                <input type="number" id="withdrawAmount" placeholder="أدخل المبلغ بالدولار (مثال: 100)" min="1" step="any" required>
+            </div>
+
+            <div class="form-group">
+                <label for="payoutMethod">طريقة استلام الأرباح بالجنيه المصري</label>
+                <select id="payoutMethod" required>
+                    <option value="" disabled selected>اختر وسيلة الاستلام المفضلة...</option>
+                    <option value="محفظة إلكترونية">محفظة إلكترونية (فودافون كاش / إنستاباي / محافظ ذكية)</option>
+                    <option value="حساب بنكي">تحويل حساب بنكي محلي (IBAN / رقم الحساب البنكي)</option>
+                    <option value="فيزا / ماستركارد">بطاقة دفع بنكية (فيزا / ماستركارد)</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="dynamicField" style="display: none;">
+                <label id="dynamicLabel" for="destinationDetails">بيانات التحويل</label>
+                <input type="text" id="destinationDetails" required>
+            </div>
+
+            <!-- ملخص الحسبة والخصم 25% والتحويل للجنيه المصري -->
+            <div class="fee-card">
+                <div class="fee-row">
+                    <span>إجمالي المبلغ المطلوب سحبه:</span>
+                    <span id="calcGross">$0.00</span>
+                </div>
+                <div class="fee-row">
+                    <span>رسوم المعالجة والتحويل الإعلاني (25%):</span>
+                    <span id="calcFee" class="fee-danger">-$0.00</span>
+                </div>
+                <div class="fee-row">
+                    <span>الصافي بالدولار بعد الخصم:</span>
+                    <span id="calcNetUsd" class="fee-usd">$0.00</span>
+                </div>
+                <div class="fee-row">
+                    <span>سعر الصرف الرسمي للبنوك:</span>
+                    <span id="calcRateRow">1$ = 56.26 ج.م</span>
+                </div>
+                <div class="fee-row total-egp">
+                    <span>المبلغ النهائي المستلم بالمصري:</span>
+                    <span id="calcNetEgp" class="fee-net-egp">0.00 ج.م</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit" id="submitBtn">تأكيد طلب الصرف والاستلام بالمصري</button>
+        </form>
+
+        <div id="alertBox" class="alert-box"></div>
+    </div>
+
+    <!-- بطاقة قائمة مبالغ السحب -->
+    <div class="history-card">
+        <div class="card-header">
+            <h3>قائمة مبالغ وطلبات السحب</h3>
+            <button type="button" class="btn-clear" id="clearListBtn">مسح القائمة</button>
+        </div>
+
+        <div id="withdrawListContainer" class="withdraw-list"></div>
+    </div>
+</div>
+
+<script>
+    // =========================================================================
+    // ضع رابط سيرفر Render الخاص بك هنا (أو اتركه كما هو إذا كانت الصفحة داخل Render)
+    // =========================================================================
+    const RENDER_SERVER_URL = "https://your-app.onrender.com";
+    const API_BASE = RENDER_SERVER_URL.includes("your-app") ? "" : RENDER_SERVER_URL;
+
+    let currentAvailableBalance = 240.00;
+    let officialBankRate = 56.26; // السعر الرسمي المعتمد للبنوك
+
+    const balanceElem = document.getElementById("currentBalance");
+    const egpBalanceEquivalent = document.getElementById("egpBalanceEquivalent");
+    const bankRateDisplay = document.getElementById("bankRateDisplay");
+    const amountInput = document.getElementById("withdrawAmount");
+    const methodSelect = document.getElementById("payoutMethod");
+    const dynamicField = document.getElementById("dynamicField");
+    const dynamicLabel = document.getElementById("dynamicLabel");
+    const destinationInput = document.getElementById("destinationDetails");
+
+    const calcGross = document.getElementById("calcGross");
+    const calcFee = document.getElementById("calcFee");
+    const calcNetUsd = document.getElementById("calcNetUsd");
+    const calcRateRow = document.getElementById("calcRateRow");
+    const calcNetEgp = document.getElementById("calcNetEgp");
+    const payoutForm = document.getElementById("payoutForm");
+    const submitBtn = document.getElementById("submitBtn");
+    const alertBox = document.getElementById("alertBox");
+
+    const withdrawListContainer = document.getElementById("withdrawListContainer");
+    const clearListBtn = document.getElementById("clearListBtn");
+
+    const metricImpressions = document.getElementById("metricImpressions");
+    const trendImpressions = document.getElementById("trendImpressions");
+    const metricEcpm = document.getElementById("metricEcpm");
+    const metricCtr = document.getElementById("metricCtr");
+    const metricCampaigns = document.getElementById("metricCampaigns");
+
+    function formatEgp(num) {
+        return Number(num).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }) + " ج.م";
+    }
+
+    // جلب السعر الرسمي مباشرة في حال فتح الملف على GitHub قبل ربط سيرفر Render
+    async function fetchDirectBankRateBackup() {
+        try {
+            const res = await fetch("https://open.er-api.com/v6/latest/USD");
+            const data = await res.json();
+            if (data && data.rates && data.rates.EGP) {
+                officialBankRate = parseFloat(data.rates.EGP.toFixed(2));
+                updateRateLabels();
+            }
+        } catch (e) {}
+    }
+
+    function updateRateLabels() {
+        bankRateDisplay.textContent = officialBankRate.toFixed(2);
+        calcRateRow.textContent = `1$ = ${officialBankRate.toFixed(2)} ج.م`;
+        const totalEgpEquiv = currentAvailableBalance * officialBankRate;
+        egpBalanceEquivalent.textContent = `ما يعادل بالعملة المحلية: ${formatEgp(totalEgpEquiv)} (بسعر البنك الرسمي)`;
+        recalculateFormPreview();
+    }
+
+    // تحديث المؤشرات الأربعة بناءً على الرصيد الحالي
+    function updateAdMetrics(balanceAmount) {
+        const balance = Math.max(0, parseFloat(balanceAmount) || 0);
+
+        if (balance === 0) {
+            metricImpressions.textContent = "0";
+            trendImpressions.textContent = "● تم تصفية العوائد";
+            metricEcpm.textContent = "$0.00";
+            metricCtr.textContent = "0.00%";
+            metricCampaigns.textContent = "0 حملة";
+            return;
+        }
+
+        const ecpm = 1.85 + ((balance % 80) / 100);
+        metricEcpm.textContent = `$${ecpm.toFixed(2)}`;
+
+        const rawImpressions = (balance / ecpm) * 1000;
+        if (rawImpressions >= 1000000) {
+            metricImpressions.textContent = (rawImpressions / 1000000).toFixed(2) + "M";
+        } else if (rawImpressions >= 1000) {
+            metricImpressions.textContent = (rawImpressions / 1000).toFixed(1) + "K";
+        } else {
+            metricImpressions.textContent = Math.round(rawImpressions).toString();
+        }
+
+        const growthRate = (8.5 + (balance % 12)).toFixed(1);
+        trendImpressions.textContent = `▲ +${growthRate}% هذا الأسبوع`;
+
+        const ctr = 3.10 + ((balance % 175) / 100);
+        metricCtr.textContent = `${ctr.toFixed(2)}%`;
+
+        const campaignsCount = Math.max(1, Math.min(45, Math.ceil(balance / 20)));
+        metricCampaigns.textContent = `${campaignsCount} حملة`;
+    }
+
+    // رسم قائمة السحوبات بالجنيه المصري
+    function renderWithdrawalList(list) {
+        withdrawListContainer.innerHTML = "";
+
+        if (!list || list.length === 0) {
+            withdrawListContainer.innerHTML = `<div class="empty-state">لا توجد عمليات سحب مسجلة في القائمة حالياً</div>`;
+            clearListBtn.style.opacity = "0.5";
+            return;
+        }
+
+        clearListBtn.style.opacity = "1";
+
+        list.forEach((item) => {
+            let statusBadge = "";
+            let grossClass = "amount-gross";
+            let grossPrefix = "-";
+            let itemClass = "withdraw-item";
+
+            if (item.status === "approved") {
+                statusBadge = `<span class="badge-approved">✓ تمت التسوية والدفع بنجاح</span>`;
+            } else if (item.status === "rejected") {
+                statusBadge = `<span class="badge-rejected">✗ فشلت العملية (تم استرداد المبلغ)</span>`;
+                grossClass = "amount-refunded";
+                grossPrefix = "";
+                itemClass = "withdraw-item rejected-item";
+            } else {
+                statusBadge = `<span class="badge-pending">⏳ قيد التسوية والخصم</span>`;
+            }
+
+            const egpVal = item.netEgp
+                ? parseFloat(item.netEgp)
+                : parseFloat(item.net) * officialBankRate;
+
+            const usedRate = item.exchangeRate || officialBankRate.toFixed(2);
+
+            const row = document.createElement("div");
+            row.className = itemClass;
+            row.innerHTML = `
+                <div class="item-info">
+                    <div class="item-title">
+                        <span>${item.userName} (${item.method})</span>
+                        ${statusBadge}
+                    </div>
+                    <span class="item-meta">بيانات الاستلام: ${item.destination} | سعر الصرف: ${usedRate} ج.م | ${item.date}</span>
+                </div>
+                <div class="item-amounts">
+                    <div class="amount-box">
+                        <span class="amount-label">${item.status === "rejected" ? "مسترد للرصيد" : "المخصوم بالدولار"}</span>
+                        <span class="${grossClass}">${grossPrefix}$${parseFloat(item.gross).toFixed(2)}</span>
+                    </div>
+                    <div class="amount-box">
+                        <span class="amount-label">الصافي المستلم بالمصري (بعد 25%)</span>
+                        <span class="amount-net-egp">${formatEgp(egpVal)}</span>
+                    </div>
+                </div>
+            `;
+            withdrawListContainer.appendChild(row);
+        });
+    }
+
+    function applyServerData(balance, history, rate) {
+        if (rate && !isNaN(parseFloat(rate))) {
+            officialBankRate = parseFloat(rate);
+        }
+        currentAvailableBalance = Math.max(0, parseFloat(balance) || 0);
+        balanceElem.textContent = currentAvailableBalance.toFixed(2);
+        amountInput.max = currentAvailableBalance.toFixed(2);
+        updateRateLabels();
+        updateAdMetrics(currentAvailableBalance);
+        renderWithdrawalList(history);
+    }
+
+    async function syncWithServer() {
+        try {
+            const res = await fetch(`${API_BASE}/api/balance`);
+            const data = await res.json();
+            if (data.success) {
+                applyServerData(data.balance, data.history, data.exchangeRate);
+            }
+        } catch (err) {
+            // في حال التشغيل المحلي قبل ربط السيرفر
+            updateRateLabels();
+            updateAdMetrics(currentAvailableBalance);
+        }
+    }
+
+    methodSelect.addEventListener("change", () => {
+        dynamicField.style.display = "block";
+        const val = methodSelect.value;
+
+        if (val === "محفظة إلكترونية") {
+            dynamicLabel.textContent = "رقم المحفظة الإلكترونية أو معرف إنستاباي (InstaPay)";
+            destinationInput.placeholder = "مثال: 010xxxxxxxx أو username@instapay";
+        } else if (val === "حساب بنكي") {
+            dynamicLabel.textContent = "اسم البنك ورقم الحساب أو الآيبان (IBAN)";
+            destinationInput.placeholder = "مثال: البنك الأهلي المصري - EGxxxxxxxxxxxxxxxx";
+        } else if (val === "فيزا / ماستركارد") {
+            dynamicLabel.textContent = "رقم البطاقة (16 رقم) واسم صاحب البطاقة بالإنجليزية";
+            destinationInput.placeholder = "مثال: 4123 xxxx xxxx 1234 - MOHAMED AHMED";
+        }
+    });
+
+    // حساب الخصم (25%) والتحويل للجنيه المصري لحظياً
+    function recalculateFormPreview() {
+        const val = parseFloat(amountInput.value) || 0;
+        const feeUsd = val * 0.25;
+        const netUsd = val - feeUsd;
+        const netEgp = netUsd * officialBankRate;
+
+        calcGross.textContent = `$${val.toFixed(2)}`;
+        calcFee.textContent = `-$${feeUsd.toFixed(2)}`;
+        calcNetUsd.textContent = `$${netUsd.toFixed(2)}`;
+        calcNetEgp.textContent = formatEgp(netEgp);
+    }
+
+    amountInput.addEventListener("input", recalculateFormPreview);
+
+    // إرسال طلب السحب
+    payoutForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const requestedAmount = parseFloat(amountInput.value) || 0;
+
+        if (requestedAmount <= 0 || requestedAmount > currentAvailableBalance) {
+            alertBox.className = "alert-box alert-danger";
+            alertBox.textContent = "المبلغ المطلوب يتجاوز الرصيد المتاح حالياً.";
+            alertBox.style.display = "block";
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "جاري اعتماد التحويل بالجنيه المصري...";
+        alertBox.style.display = "none";
+
+        const payload = {
+            userName: document.getElementById("userName").value.trim(),
+            amount: requestedAmount,
+            paymentMethod: methodSelect.value,
+            destination: destinationInput.value.trim()
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/api/withdraw`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await res.json();
+            if (!result.success) throw new Error(result.message);
+
+            applyServerData(result.newBalance, result.history, result.exchangeRate);
+
+            alertBox.className = "alert-box alert-success";
+            alertBox.textContent = `تم إرسال الطلب وهو قيد التسوية! الصافي المستحق للاستلام (${formatEgp(result.netAmountEgp)}) بعد خصم 25% وبسعر البنك الرسمي (${result.exchangeRate} ج.م).`;
+            alertBox.style.display = "block";
+
+            payoutForm.reset();
+            dynamicField.style.display = "none";
+            recalculateFormPreview();
+        } catch (err) {
+            alertBox.className = "alert-box alert-danger";
+            alertBox.textContent = err.message || "تعذر الاتصال بالسيرفر في الوقت الحالي.";
+            alertBox.style.display = "block";
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "تأكيد طلب الصرف والاستلام بالمصري";
+        }
+    });
+
+    // مسح القائمة بالكامل
+    clearListBtn.addEventListener("click", async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/clear`, { method: "POST" });
+            const data = await res.json();
+            if (data.success) {
+                applyServerData(data.newBalance, data.history, data.exchangeRate);
+                alertBox.style.display = "none";
+            }
+        } catch (err) {
+            console.error("تعذر مسح القائمة");
+        }
+    });
+
+    // تشغيل الجلب التلقائي
+    fetchDirectBankRateBackup();
+    syncWithServer();
+    setInterval(syncWithServer, 4000);
+</script>
 </body>
 </html>
