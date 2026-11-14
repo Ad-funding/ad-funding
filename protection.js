@@ -1,432 +1,256 @@
-/* ==========================================================================
-   نظام حماية منصة التمويل الإعلاني الشامل (متوافق مع جميع الأجهزة والشاشات)
-   ========================================================================== */
-
+let vmP=typeof globalThis!=='undefined'?globalThis:typeof g<!-- بداية نظام حماية التمويل الاعلاني الشامل -->
+  
 (function () {
-    'use strict';
+  'use strict';
 
-    // 1. التعرف الذكي على نوع الجهاز (هاتف / تابلت / كمبيوتر)
-    function isTouchOrMobileDevice() {
-        return (
-            ('ontouchstart' in window) ||
-            (navigator.maxTouchPoints > 0) ||
-            window.matchMedia('(pointer: coarse)').matches ||
-            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-        );
+  // 1. الأزرار المحظورة (عربي + إنجليزي)
+  const blockedKeys = [
+    'f12', 'printscreen', 'escape',
+    'p', 'u', 'a', 'c', 'v', 'x', 's', 'd', 'r', 'j', 'i', 'h',
+    'ح', 'ع', 'ش', 'ؤ', 'ر', 'ء', 'س', 'ي', 'ق', 'ت', 'ه', 'ا'
+  ];
+
+  function isInputField(target) {
+    if (!target) return false;
+    const tag = target.tagName ? target.tagName.toLowerCase() : '';
+    return tag === 'input' || tag === 'textarea' || target.isContentEditable;
+  }
+
+  // 2. معالجة الثغرة: عند ترك الصفحة أو التركيز على شريط العنوان
+  window.addEventListener('blur', function () {
+    // عند الخروج من الصفحة، مسح أي تحديد أو حافظة فوراً
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText('');
+    }
+  });
+
+  window.addEventListener('focus', function () {
+    // عند العودة للصفحة بعد الضغط على شريط العنوان
+    checkDevToolsState();
+  });
+
+  // 3. منع اختصارات المفاتيح الصارم على مستوى window
+  window.addEventListener('keydown', function (event) {
+    if (isInputField(event.target)) return;
+
+    const key = event.key ? event.key.toLowerCase() : '';
+    const isCtrl = event.ctrlKey || event.metaKey;
+
+    if (key === 'f12' || key === 'printscreen') {
+      event.preventDefault();
+      event.stopPropagation();
+      showCustomNotification('محتوى التمويل الأعلاني محمي بموجب حقوق الطبع والنشر.');
+      return false;
     }
 
-    // التحقق مما إذا كان العنصر حقل إدخال أو زر تفاعلي للسماح بالكتابة واللمس السلس
-    function isInteractiveOrInput(target) {
-        if (!target || !target.tagName) return false;
-        const tag = target.tagName.toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'option' || target.isContentEditable) {
-            return true;
-        }
-        if (target.closest && target.closest('input, textarea, select, [contenteditable="true"]')) {
-            return true;
-        }
-        return false;
+    if (isCtrl && blockedKeys.includes(key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      showCustomNotification('تم تعطيل هذا الاختصار للحماية.');
+      return false;
     }
+  }, true);
 
-    // 2. حقن تنسيقات CSS المتجاوبة لجميع الشاشات (الهواتف، النوتش، سطح المكتب)
-    function injectResponsiveProtectionStyles() {
-        if (document.getElementById('ad-protection-styles')) return;
-        const style = document.createElement('style');
-        style.id = 'ad-protection-styles';
-        style.textContent = `
-            /* منع تحديد النصوص والضغط المطول في الصفحات مع استثناء حقول الإدخال */
-            body, .container, header, .balance-card, .metric-card, .history-card {
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
-                -webkit-touch-callout: none;
-            }
+  // 4. منع الزر الأيمن للكليك
+  window.addEventListener('contextmenu', function (event) {
+    if (isInputField(event.target)) return;
+    event.preventDefault();
+    showCustomNotification('محتوى التمويل الأعلاني محمي بموجب حقوق الطبع والنشر.');
+  }, true);
 
-            /* السماح الكامل بالكتابة والتحديد داخل حقول الإدخال على جميع الهواتف */
-            input, textarea, select {
-                -webkit-user-select: text !important;
-                -moz-user-select: text !important;
-                -ms-user-select: text !important;
-                user-select: text !important;
-                -webkit-touch-callout: default !important;
-            }
-
-            /* إشعار الحماية المتجاوب مع الهواتف والكمبيوتر */
-            #hikayat-notification {
-                position: fixed;
-                bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-                right: 20px;
-                background: rgba(15, 23, 42, 0.96);
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-                color: #f8fafc;
-                padding: 12px 18px;
-                border-radius: 12px;
-                font-size: clamp(12.5px, 3.2vw, 14px);
-                font-weight: 700;
-                font-family: 'Cairo', system-ui, -apple-system, sans-serif;
-                direction: rtl;
-                text-align: center;
-                z-index: 2147483647;
-                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55), 0 0 15px rgba(16, 185, 129, 0.25);
-                border: 1px solid rgba(16, 185, 129, 0.65);
-                transition: opacity 0.25s ease, transform 0.25s ease;
-                pointer-events: none;
-                max-width: min(400px, calc(100vw - 32px));
-                line-height: 1.5;
-            }
-
-            @media (max-width: 600px) {
-                #hikayat-notification {
-                    right: 16px;
-                    left: 16px;
-                    margin: 0 auto;
-                }
-            }
-
-            /* تنسيق شريط الحقوق المتجاوب مع جميع الشاشات */
-            .copyleft-area {
-                width: 100%;
-                max-width: 760px;
-                margin: 20px auto 8px auto;
-                padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)) 16px;
-                text-align: center;
-                font-size: clamp(11.5px, 2.8vw, 13px);
-                color: #94a3b8;
-                font-family: 'Cairo', system-ui, sans-serif;
-                line-height: 1.6;
-                z-index: 10;
-                background: rgba(15, 23, 42, 0.55);
-                border: 1px solid rgba(255, 255, 255, 0.06);
-                border-radius: 14px;
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
-            }
-
-            .copyleft-area a {
-                color: #3b82f6;
-                text-decoration: none;
-                font-weight: 700;
-                transition: color 0.2s ease;
-            }
-
-            .copyleft-area a:hover {
-                color: #10b981;
-            }
-        `;
-        (document.head || document.documentElement).appendChild(style);
-    }
-
-    injectResponsiveProtectionStyles();
-    window.addEventListener('DOMContentLoaded', injectResponsiveProtectionStyles);
-
-    // 3. قائمة الاختصارات المحظورة على لوحة المفاتيح
-    const blockedCtrlKeys = [
-        'u', 's', 'p', 'a', 'c', 'x', 'i', 'j', 'h', 'd', 'r',
-        'ع', 'س', 'ح', 'ش', 'ؤ', 'ء', 'ه', 'ت', 'أ', 'ا', 'ي', 'ق'
-    ];
-
-    const blockedCtrlShiftKeys = [
-        'i', 'j', 'c', 'k', 'm',
-        'ه', 'ت', 'ؤ', 'ن', 'ة'
-    ];
-
-    // 4. إظهار التنبيه المتجاوب
-    function showCustomNotification(msg) {
-        if (!document.body) return;
-        let notification = document.getElementById('hikayat-notification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'hikayat-notification';
-            document.body.appendChild(notification);
-        }
-        notification.textContent = '🛡️ ' + msg;
-        notification.style.display = 'block';
-        notification.style.opacity = '1';
-        notification.style.transform = 'translateY(0)';
-
-        clearTimeout(window.hikayatNotifTimer);
-        window.hikayatNotifTimer = setTimeout(function () {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateY(8px)';
-            setTimeout(function () {
-                if (notification) notification.style.display = 'none';
-            }, 250);
-        }, 2400);
-    }
-
-    // 5. منع اختصارات الفحص والنسخ على لوحة المفاتيح
-    window.addEventListener('keydown', function (event) {
-        const key = event.key ? event.key.toLowerCase() : '';
-        const isCtrl = event.ctrlKey || event.metaKey;
-        const isShift = event.shiftKey;
-
-        // منع F12 و PrintScreen على جميع الأجهزة
-        if (key === 'f12' || key === 'printscreen' || event.keyCode === 123 || event.keyCode === 44) {
-            event.preventDefault();
-            event.stopPropagation();
-            showCustomNotification('محتوى التمويل الإعلاني محمي بموجب حقوق الطبع والنشر.');
-            return false;
-        }
-
-        // منع Ctrl+Shift+I / J / C
-        if (isCtrl && isShift && blockedCtrlShiftKeys.includes(key)) {
-            event.preventDefault();
-            event.stopPropagation();
-            showCustomNotification('أدوات فحص العناصر معطلة لحماية المنصة.');
-            return false;
-        }
-
-        // إذا كان المستخدم يكتب داخل حقل إدخال، نسمح له بالكتابة الطبيعية ونمنع فقط حفظ الصفحة أو عرض المصدر
-        if (isInteractiveOrInput(event.target)) {
-            if (isCtrl && (key === 'u' || key === 's' || key === 'p' || key === 'ع' || key === 'س' || key === 'ح')) {
-                event.preventDefault();
-                event.stopPropagation();
-                showCustomNotification('تم تعطيل هذا الاختصار للحماية.');
-                return false;
-            }
-            return;
-        }
-
-        if (isCtrl && blockedCtrlKeys.includes(key)) {
-            event.preventDefault();
-            event.stopPropagation();
-            showCustomNotification('تم تعطيل هذا الاختصار للحماية.');
-            return false;
-        }
+  // 5. منع تحديد النص، النسخ، السحب
+  ['selectstart', 'copy', 'cut', 'paste', 'dragstart'].forEach(function (evt) {
+    window.addEventListener(evt, function (e) {
+      if (!isInputField(e.target)) {
+        e.preventDefault();
+      }
     }, true);
+  });
 
-    // 6. منع القائمة المنبثقة (الزر الأيمن على الكمبيوتر / الضغط المطول خارج الحقول على الهاتف)
-    window.addEventListener('contextmenu', function (event) {
-        if (isInteractiveOrInput(event.target)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        showCustomNotification('محتوى التمويل الإعلاني محمي بموجب حقوق الطبع والنشر.');
-        return false;
-    }, true);
+  // 6. حماية متقدمة ضد فتح DevTools (عن طريق كشف الفروق في أبعاد النافذة و debugger)
+  function checkDevToolsState() {
+    const threshold = 160;
+    const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+    const heightThreshold = window.outerHeight - window.innerHeight > threshold;
 
-    // 7. منع النسخ والقص والسحب خارج حقول الإدخال
-    ['selectstart', 'copy', 'cut', 'dragstart'].forEach(function (evt) {
-        window.addEventListener(evt, function (e) {
-            if (!isInteractiveOrInput(e.target)) {
-                e.preventDefault();
-            }
-        }, true);
-    });
-
-    // 8. فحص فتح أدوات المطورين (DevTools) مع استثناء الهواتف لمنع الإنذار الكاذب عند ظهور الكيبورد
-    function checkDevToolsState() {
-        if (isTouchOrMobileDevice()) return; // على الهواتف الكيبورد يغير innerHeight وهو أمر طبيعي
-
-        const threshold = 175;
-        const widthDiff = Math.abs(window.outerWidth - window.innerWidth) > threshold;
-        const heightDiff = Math.abs(window.outerHeight - window.innerHeight) > threshold;
-
-        if (widthDiff || heightDiff) {
-            showCustomNotification('تنبيه: محاولة فتح أدوات التطوير غير مسموح بها.');
-            try { console.clear(); } catch (e) {}
-        }
+    if (widthThreshold || heightThreshold) {
+      showCustomNotification('تنبيه: محاولة فتح أدوات التطوير غير مسموح بها.');
     }
+  }
 
-    window.addEventListener('focus', checkDevToolsState);
-    window.addEventListener('resize', function () {
-        if (!isTouchOrMobileDevice()) {
-            checkDevToolsState();
-        }
-    });
+  // تشغيل مصيدة الحماية التلقائية ضد أدوات الفحص
+  setInterval(function () {
+    const startTime = performance.now();
+    (function () {}["constructor"]("debugger")());
+    const endTime = performance.now();
+    if (endTime - startTime > 100) {
+      showCustomNotification('تم كشف أدوات فحص الموقع.');
+    }
+    checkDevToolsState();
+  }, 1000);
 
-    // فحص دوري خفيف لا يستهلك بطارية الهاتف ولا يعطل الكتابة
-    setInterval(function () {
-        if (!isTouchOrMobileDevice()) {
-            const startTime = performance.now();
-            (function () {}['constructor']('debugger')());
-            const endTime = performance.now();
-            if (endTime - startTime > 120) {
-                try { console.clear(); } catch (e) {}
-                showCustomNotification('تم كشف أدوات فحص الموقع.');
-            }
-            checkDevToolsState();
-        }
-    }, 1500);
+  // 7. دالة إظهار التنبيه المخصص
+  function showCustomNotification(msg) {
+    let notification = document.getElementById('hikayat-notification');
+    if (!notification) {
+      notification = document.createElement('div');
+      notification.id = 'hikayat-notification';
+      notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #000000e6;
+        color: #fff;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: Arial, sans-serif;
+        direction: rtl;
+        z-index: 9999999;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        border: 1px solid #25d366;
+        transition: opacity 0.3s ease;
+      `;
+      document.body.appendChild(notification);
+    }
+    notification.textContent = msg;
+    notification.style.display = 'block';
+    notification.style.opacity = '1';
+
+    clearTimeout(window.hikayatNotifTimer);
+    window.hikayatNotifTimer = setTimeout(() => {
+      notification.style.opacity = '0';
+      setTimeout(() => { notification.style.display = 'none'; }, 300);
+    }, 2500);
+  }
 })();
 
-/* ==========================================================================
-   الجزء الثاني: حماية توقيع الحقوق (.copyleft-area) وشاشة الإغلاق المتجاوبة
-   ========================================================================== */
-
+<!-- نهاية نظام حماية التمويل الأعلاني الشامل -->
 (function () {
-    'use strict';
+  'use strict';
 
-    const TARGET_URL = 'https://ad-funding.onrender.com';
-    const AUTHOR_NAME = 'شركاء منتدابون';
-    const STORE_NAME = 'التمويل الأعلاني';
+  // البيانات المطلوبة للتحقق
+  const TARGET_URL = 'https://ad-funding.onrender.com';
+  const AUTHOR_NAME = 'بوابة الناشرين';
+  const STORE_NAME = 'التمويل الأعلاني';
 
-    let isLocked = false;
+  // وظيفة إغلاق الصفحة وحظر التشغيل نهائياً
+  function lockPage() {
+    try {
+      window.stop();
+    } catch (e) {}
 
-    // 1. إدراج شريط الحقوق تلقائياً في المكان المناسب لجميع الشاشات
-    function ensureRightsFooterExists() {
-        if (!document.body || isLocked) return;
-        let existing = document.querySelector('.copyleft-area');
-        if (!existing) {
-            const footerDiv = document.createElement('footer');
-            footerDiv.className = 'copyleft-area';
-            footerDiv.innerHTML = `جميع الحقوق محفوظة © منصة <a href="${TARGET_URL}" target="_blank" rel="noopener noreferrer">${STORE_NAME}</a> — بإدارة ${AUTHOR_NAME}`;
+    // استبدال محتوى المستند بالكامل بشاشة حظر غير قابلة للإلغاء
+    document.documentElement.innerHTML = `
+      <html lang="ar" dir="rtl">
+      <head>
+        <meta charset="UTF-8">
+        <title>تم توقيف الصفحة</title>
+        <style>
+          body {
+            margin: 0; padding: 0;
+            background-color: #0d0d0d;
+            color: #ff4d4d;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            height: 100vh; text-align: center; direction: rtl;
+          }
+          .lock-card {
+            background: #1a1a1a;
+            padding: 40px 30px;
+            border-radius: 16px;
+            border: 2px solid #ff4d4d;
+            box-shadow: 0 10px 30px rgba(255, 77, 77, 0.3);
+            max-width: 480px; width: 90%;
+          }
+          h1 { font-size: 22px; margin-bottom: 12px; }
+          p { color: #ccc; font-size: 15px; line-height: 1.6; margin-bottom: 0; }
+        </style>
+      </head>
+      <body>
+        <div class="lock-card">
+          <h1>🚫 تم إيقاف تشغيل الصفحة</h1>
+          <p>عفواً، تم اكتشاف تغيير أو حذف في حقوق الملكية الفكرية وتوقيع البرمجة الخاص بالمتجر.</p>
+        </div>
+      </body>
+      </html>
+    `;
 
-            // إذا كانت صفحة الصيانة (body يعتمد flex أفقي)، نضع التوقيع داخل الحاوية لتجنب كسر التصميم على الموبايل
-            const mainContainer = document.querySelector('.container');
-            if (mainContainer && window.location.pathname.includes('maintenance') || document.getElementById('emergencyModal')) {
-                if (mainContainer) {
-                    footerDiv.style.marginTop = '22px';
-                    footerDiv.style.background = 'rgba(0, 0, 0, 0.25)';
-                    mainContainer.appendChild(footerDiv);
-                    return;
-                }
-            }
+    document.body.style.overflow = 'hidden';
 
-            document.body.appendChild(footerDiv);
-        }
+    // حلقة تكرارية لمنع محاولة استرجاع عناصر الصفحة عبر أدوات المطور (DevTools)
+    setInterval(function () {
+      if (document.querySelector('.copyleft-area') || !document.querySelector('.lock-card')) {
+        window.location.reload();
+      }
+    }, 500);
+  }
+
+  // دالة فحص السلامة والتحقق من الحقوق
+  function verifyRights() {
+    const copyleftElem = document.querySelector('.copyleft-area');
+    
+    // 1. فحص وجود الحاوية الرئيسية
+    if (!copyleftElem) {
+      return lockPage();
     }
 
-    // 2. شاشة الحظر المتجاوبة مع جميع الشاشات عند التلاعب بالحقوق
-    function lockPage() {
-        if (isLocked) return;
-        isLocked = true;
-
-        try { window.stop(); } catch (e) {}
-
-        document.documentElement.innerHTML = `
-            <!DOCTYPE html>
-            <html lang="ar" dir="rtl">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                <title>تم إيقاف تشغيل الصفحة</title>
-                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;800&display=swap" rel="stylesheet">
-                <style>
-                    * { box-sizing: border-box; margin: 0; padding: 0; }
-                    body {
-                        background: radial-gradient(circle at center, #111827 0%, #070b14 100%);
-                        color: #f43f5e;
-                        font-family: 'Cairo', system-ui, -apple-system, sans-serif;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        min-height: 100vh;
-                        min-height: 100dvh;
-                        padding: 20px;
-                        text-align: center;
-                        direction: rtl;
-                        overflow: hidden;
-                    }
-                    .lock-card {
-                        background: rgba(17, 24, 39, 0.92);
-                        padding: clamp(24px, 5vw, 40px) clamp(18px, 4vw, 30px);
-                        border-radius: 22px;
-                        border: 2px solid rgba(244, 63, 94, 0.7);
-                        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(244, 63, 94, 0.25);
-                        max-width: 460px;
-                        width: 100%;
-                    }
-                    .lock-icon {
-                        font-size: clamp(38px, 8vw, 52px);
-                        margin-bottom: 12px;
-                    }
-                    h1 {
-                        font-size: clamp(18px, 4.5vw, 23px);
-                        margin-bottom: 12px;
-                        font-weight: 800;
-                        color: #ffffff;
-                    }
-                    p {
-                        color: #94a3b8;
-                        font-size: clamp(13.5px, 3.5vw, 15px);
-                        line-height: 1.75;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="lock-card">
-                    <div class="lock-icon">🚫</div>
-                    <h1>تم إيقاف تشغيل الصفحة</h1>
-                    <p>عفواً، تم اكتشاف تغيير أو حذف في حقوق الملكية الفكرية وتوقيع البرمجة الخاص بمنصة التمويل الأعلاني.</p>
-                </div>
-            </body>
-            </html>
-        `;
-
-        setInterval(function () {
-            if (!document.querySelector('.lock-card')) {
-                window.location.reload();
-            }
-        }, 600);
+    // 2. فحص محتوى النصوص
+    const textContent = copyleftElem.innerText || copyleftElem.textContent || '';
+    if (!textContent.includes(AUTHOR_NAME) || !textContent.includes(STORE_NAME)) {
+      return lockPage();
     }
 
-    // 3. التحقق الدوري من سلامة شريط الحقوق
-    function verifyRights() {
-        if (isLocked || !document.body) return;
-
-        const copyleftElem = document.querySelector('.copyleft-area');
-        if (!copyleftElem) {
-            return lockPage();
-        }
-
-        const textContent = copyleftElem.innerText || copyleftElem.textContent || '';
-        if (!textContent.includes(AUTHOR_NAME) || !textContent.includes(STORE_NAME)) {
-            return lockPage();
-        }
-
-        const linkElem = copyleftElem.querySelector('a');
-        if (!linkElem) {
-            return lockPage();
-        }
-
-        const hrefVal = linkElem.getAttribute('href') || '';
-        if (!hrefVal.includes(TARGET_URL)) {
-            return lockPage();
-        }
-
-        const containerStyle = window.getComputedStyle(copyleftElem);
-        const linkStyle = window.getComputedStyle(linkElem);
-
-        if (
-            containerStyle.display === 'none' ||
-            containerStyle.visibility === 'hidden' ||
-            parseFloat(containerStyle.opacity) === 0 ||
-            parseFloat(containerStyle.fontSize) === 0 ||
-            linkStyle.display === 'none' ||
-            linkStyle.visibility === 'hidden' ||
-            parseFloat(linkStyle.opacity) === 0
-        ) {
-            return lockPage();
-        }
+    // 3. فحص عنصر الرابط والـ href
+    const linkElem = copyleftElem.querySelector('a');
+    if (!linkElem) {
+      return lockPage();
     }
 
-    // 4. بدء التفعيل والمراقبة
-    function startProtection() {
-        ensureRightsFooterExists();
-        verifyRights();
-
-        const observer = new MutationObserver(function () {
-            verifyRights();
-        });
-
-        if (document.body) {
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                characterData: true,
-                attributes: true
-            });
-        }
+    const hrefVal = linkElem.getAttribute('href') || '';
+    if (!hrefVal.includes(TARGET_URL)) {
+      return lockPage();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', startProtection);
-    } else {
-        startProtection();
-    }
+    // 4. فحص الإخفاء بواسطة CSS (Display, Visibility, Opacity, Font-size)
+    const containerStyle = window.getComputedStyle(copyleftElem);
+    const linkStyle = window.getComputedStyle(linkElem);
 
-    window.addEventListener('load', startProtection);
-    setInterval(verifyRights, 1000);
+    if (
+      containerStyle.display === 'none' ||
+      containerStyle.visibility === 'hidden' ||
+      parseFloat(containerStyle.opacity) === 0 ||
+      containerStyle.fontSize === '0px' ||
+      linkStyle.display === 'none' ||
+      linkStyle.visibility === 'hidden' ||
+      parseFloat(linkStyle.opacity) === 0
+    ) {
+      return lockPage();
+    }
+  }
+
+  // مراقبة الـ DOM لمنع الحذف أو التعديل اللحظي بـ DevTools (MutationObserver)
+  const observer = new MutationObserver(function () {
+    verifyRights();
+  });
+
+  // تفعيل المراقب بمجرد تجهيز الـ DOM
+  const initObserver = setInterval(function () {
+    if (document.body) {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true
+      });
+      clearInterval(initObserver);
+      verifyRights();
+    }
+  }, 50);
+
+  // فحوصات دورية معززة عند تحميل ومغادرة الصفحة
+  window.addEventListener('DOMContentLoaded', verifyRights);
+  window.addEventListener('load', verifyRights);
+  setInterval(verifyRights, 800);
+  
 })();
