@@ -3,126 +3,682 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#070b14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="عوائد الإعلانات">
     <script src="protection.js" defer></script>
-    <title>نعتذر يوجد صيانة طارئة | توديع الصيانة</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <title>صيانة وتحديث الأنظمة | منصة AD$ للتمويل الإعلاني</title>
+
+    <!-- شعار سطر الويب (Favicon) مطابق لشعار المنصة -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="/app-icon.svg">
+    <link rel="manifest" href="/manifest.json">
+
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+        :root {
+            --bg-dark: #070b14;
+            --card-bg: rgba(17, 24, 39, 0.82);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.35);
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.25);
+            --warning: #f59e0b;
+            --warning-glow: rgba(245, 158, 11, 0.25);
+            --danger: #f43f5e;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --input-bg: rgba(10, 15, 29, 0.9);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Cairo', sans-serif;
+        }
+
         body {
-            background: linear-gradient(135deg, #01338D 0%, #0056b3 50%, #002266 100%);
-            color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 1rem;
+            position: relative;
+            overflow-x: hidden;
         }
-        .circles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; z-index: 1; }
+
+        /* الخلفية المتدرجة المطابقة للموقع الرئيسي */
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background: 
+                radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.2) 0%, transparent 45%),
+                radial-gradient(circle at 85% 75%, rgba(16, 185, 129, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.07) 0%, transparent 55%),
+                linear-gradient(180deg, #070b14 0%, #0c1222 100%);
+        }
+
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(circle at center, black 45%, transparent 92%);
+        }
+
+        /* جزيئات ضوئية متحركة في الخلفية */
+        .circles {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            z-index: -1;
+            pointer-events: none;
+        }
+
         .circles li {
-            position: absolute; display: block; list-style: none; width: 20px; height: 20px;
-            background: rgba(255, 255, 255, 0.1); animation: animate 25s linear infinite; bottom: -150px; border-radius: 50%;
+            position: absolute;
+            display: block;
+            list-style: none;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(16, 185, 129, 0.12));
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            animation: floatUp 24s linear infinite;
+            bottom: -160px;
+            border-radius: 24%;
         }
+
         .circles li:nth-child(1) { left: 25%; width: 80px; height: 80px; animation-delay: 0s; }
-        .circles li:nth-child(2) { left: 10%; width: 20px; height: 20px; animation-delay: 2s; animation-duration: 12s; }
+        .circles li:nth-child(2) { left: 10%; width: 24px; height: 24px; animation-delay: 2s; animation-duration: 14s; }
         .circles li:nth-child(3) { left: 70%; width: 50px; height: 50px; animation-delay: 4s; }
-        .circles li:nth-child(4) { left: 40%; width: 60px; height: 60px; animation-delay: 0s; animation-duration: 18s; }
-        .circles li:nth-child(5) { left: 65%; width: 20px; height: 20px; animation-delay: 3s; }
-        .circles li:nth-child(6) { left: 75%; width: 110px; height: 110px; animation-delay: 3s; }
-        .circles li:nth-child(7) { left: 35%; width: 150px; height: 150px; animation-delay: 7s; }
-        .circles li:nth-child(8) { left: 50%; width: 25px; height: 25px; animation-delay: 15s; animation-duration: 45s; }
-        .circles li:nth-child(9) { left: 20%; width: 45px; height: 45px; animation-delay: 2s; animation-duration: 35s; }
-        .circles li:nth-child(10){ left: 85%; width: 90px; height: 90px; animation-delay: 0s; animation-duration: 11s; }
-        @keyframes animate {
-            0% { transform: translateY(0) rotate(0deg); opacity: 1; border-radius: 0; }
-            100% { transform: translateY(-1000px) rotate(720deg); opacity: 0; border-radius: 50%; }
+        .circles li:nth-child(4) { left: 40%; width: 65px; height: 65px; animation-delay: 0s; animation-duration: 19s; }
+        .circles li:nth-child(5) { left: 65%; width: 22px; height: 22px; animation-delay: 3s; }
+        .circles li:nth-child(6) { left: 78%; width: 105px; height: 105px; animation-delay: 3s; }
+        .circles li:nth-child(7) { left: 32%; width: 130px; height: 130px; animation-delay: 7s; }
+        .circles li:nth-child(8) { left: 52%; width: 28px; height: 28px; animation-delay: 12s; animation-duration: 38s; }
+        .circles li:nth-child(9) { left: 18%; width: 45px; height: 45px; animation-delay: 2s; animation-duration: 30s; }
+        .circles li:nth-child(10){ left: 88%; width: 85px; height: 85px; animation-delay: 0s; animation-duration: 13s; }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) rotate(0deg); opacity: 0.8; }
+            100% { transform: translateY(-1100px) rotate(540deg); opacity: 0; }
         }
+
+        /* البطاقة الرئيسية للصيانة */
         .container {
-            position: relative; z-index: 2; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 40px 30px; border-radius: 20px; text-align: center; max-width: 550px; width: 90%; box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 2;
+            background: var(--card-bg);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            padding: 2.5rem 2rem;
+            border-radius: 24px;
+            text-align: center;
+            max-width: 580px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px -10px var(--primary-glow);
         }
-        .icon-box { font-size: 60px; margin-bottom: 20px; animation: bounce 2s infinite; cursor: pointer; }
-        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-15px);} 60% {transform: translateY(-7px);} }
-        h1 { font-size: 28px; font-weight: 900; margin-bottom: 15px; color: #fff; }
-        p { font-size: 15px; color: #e0e0e0; line-height: 1.6; margin-bottom: 30px; }
-        .countdown-grid { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; direction: ltr; }
-        .time-box { background: rgba(0, 0, 0, 0.3); padding: 12px 15px; border-radius: 12px; min-width: 80px; border: 1px solid rgba(255, 255, 255, 0.1); }
-        .time-box span { display: block; font-size: 26px; font-weight: 700; color: #ffc107; }
-        .time-box label { font-size: 12px; color: #b0c4de; text-transform: uppercase; }
-        .status-badge { display: inline-block; background: rgba(40, 167, 69, 0.2); color: #28a745; padding: 6px 15px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid rgba(40, 167, 69, 0.4); }
-        
-        /* تنسيق النافذة المنبثقة (Popup Modal) */
+
+        /* شعار الموقع التفاعلي في أعلى بطاقة الصيانة */
+        .brand-logo-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.55rem 1.15rem;
+            border-radius: 18px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            margin-bottom: 1.4rem;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.25s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        .brand-logo-wrap:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 25px var(--accent-glow);
+        }
+
+        .logo-svg-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .gear-badge {
+            position: absolute;
+            bottom: -4px;
+            left: -4px;
+            background: var(--warning);
+            color: #070b14;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            box-shadow: 0 0 10px var(--warning);
+            animation: spinSlow 6s linear infinite;
+        }
+
+        @keyframes spinSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .brand-text-col {
+            text-align: right;
+        }
+
+        .brand-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #fff;
+            display: block;
+            line-height: 1.2;
+        }
+
+        .brand-sub {
+            font-size: 0.76rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .maintenance-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 4px 14px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            color: #fbbf24;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .tag-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--warning);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--warning);
+            animation: pulse 1.6s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.85); }
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: 0.65rem;
+            background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.desc {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+            margin-bottom: 1.8rem;
+        }
+
+        /* عداد الوقت التنازلي الاحترافي */
+        .countdown-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 1.8rem;
+            direction: ltr;
+        }
+
+        .time-box {
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(10, 15, 29, 0.95));
+            padding: 1.1rem 0.75rem;
+            border-radius: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.22);
+            box-shadow: inset 0 0 15px rgba(59, 130, 246, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .time-box::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 15%;
+            width: 70%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), var(--accent), transparent);
+        }
+
+        .time-box span {
+            display: block;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+            line-height: 1.1;
+            text-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .time-box label {
+            display: block;
+            margin-top: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* شارة الحالة المباشرة */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            padding: 0.6rem 1.3rem;
+            border-radius: 50px;
+            font-size: 0.86rem;
+            font-weight: 700;
+            border: 1px solid rgba(16, 185, 129, 0.28);
+            width: 100%;
+            max-width: 380px;
+        }
+
+        /* زر المشرف المخفي */
+        .admin-trigger {
+            margin-top: 1.5rem;
+            padding: 0.55rem 1.1rem;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px dashed rgba(59, 130, 246, 0.35);
+            border-radius: 10px;
+            font-size: 0.82rem;
+            color: #93c5fd;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: none;
+        }
+
+        .admin-trigger:hover {
+            background: rgba(59, 130, 246, 0.25);
+            color: #fff;
+        }
+
+        /* النوافذ المنبثقة (التنبيه الطارئ + نافذة المشرف) */
         .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px);
-            display: flex; align-items: center; justify-content: center; z-index: 999;
-            animation: fadeIn 0.4s ease;
+            position: fixed;
+            inset: 0;
+            background: rgba(7, 11, 20, 0.84);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1rem;
+            animation: fadeIn 0.3s ease;
         }
+
         .modal-box {
-            background: linear-gradient(135deg, #01225c 0%, #003380 100%);
-            border: 2px solid rgba(255, 255, 255, 0.25);
-            padding: 35px 25px; border-radius: 20px; text-align: center;
-            max-width: 420px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-            animation: scaleUp 0.4s ease;
+            background: linear-gradient(145deg, #111827, #0b1120);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 2rem 1.6rem;
+            border-radius: 22px;
+            text-align: center;
+            max-width: 430px;
+            width: 100%;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 25px -5px var(--primary-glow);
+            animation: scaleUp 0.3s ease;
         }
-        .modal-box h2 { color: #ffc107; font-size: 24px; margin-bottom: 15px; font-weight: 900; }
-        .modal-box p { color: #f1f1f1; font-size: 15px; line-height: 1.6; margin-bottom: 25px; }
+
+        .modal-logo-mini {
+            width: 58px;
+            height: 58px;
+            margin: 0 auto 1rem;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px var(--warning-glow);
+        }
+
+        .modal-box h2 {
+            color: #fbbf24;
+            font-size: 1.35rem;
+            margin-bottom: 0.65rem;
+            font-weight: 800;
+        }
+
+        .modal-box p {
+            color: #cbd5e1;
+            font-size: 0.92rem;
+            line-height: 1.65;
+            margin-bottom: 1.5rem;
+        }
+
         .modal-btn {
-            background: #ffc107; color: #01225c; border: none; padding: 12px 30px;
-            font-size: 16px; font-weight: 700; border-radius: 30px; cursor: pointer;
-            transition: background 0.3s, transform 0.2s; box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4);
+            width: 100%;
+            background: linear-gradient(135deg, #2563eb, #10b981);
+            color: #fff;
+            border: none;
+            padding: 0.9rem 1.8rem;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 6px 20px var(--primary-glow);
         }
-        .modal-btn:hover { background: #e0a800; transform: scale(1.05); }
+
+        .modal-btn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+        }
+
+        /* حقول نافذة إعداد وقت الصيانة للمشرف */
+        .admin-input-group {
+            text-align: right;
+            margin-bottom: 1rem;
+        }
+
+        .admin-input-group label {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .admin-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--card-border);
+            background: var(--input-bg);
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            text-align: center;
+        }
+
+        .admin-input:focus {
+            border-color: var(--primary);
+        }
+
+        .preset-chips {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-top: 0.5rem;
+        }
+
+        .chip-btn {
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            color: #93c5fd;
+            padding: 0.4rem;
+            border-radius: 8px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chip-btn:hover {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .chip-btn.stop-chip {
+            background: rgba(16, 185, 129, 0.14);
+            border-color: rgba(16, 185, 129, 0.35);
+            color: #34d399;
+        }
+
+        .admin-modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 1.2rem;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            padding: 0.8rem;
+            background: rgba(255, 255, 255, 0.07);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .admin-feedback {
+            display: none;
+            margin-top: 0.75rem;
+            padding: 0.6rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-        .admin-trigger { margin-top: 20px; font-size: 11px; color: rgba(255,255,255,0.4); cursor: pointer; transition: color 0.3s; }
-        .admin-trigger:hover { color: rgba(255,255,255,0.8); }
+        @keyframes scaleUp { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <!-- النافذة المنبثقة التفاعلية (تظهر عند الدخول) -->
-    <div class="modal-overlay" id="emergencyModal">
-        <div class="modal-box">
-            <div style="font-size: 50px; margin-bottom: 10px;">⚠️</div>
-            <h2>تنبيه: صيانة طارئة</h2>
-            <p>نعتذر لعملائنا الأعزاء، الموقع خاضع حالياً لتحديثات وصيانة طارئة لتحسين الخدمات. يرجى الانتظار لحين الانتهاء.</p>
-            <button class="modal-btn" onclick="closeModal()">فهمت، متابعة التصفح</button>
-        </div>
-    </div>
+    <div class="bg-mesh"></div>
+    <div class="bg-grid"></div>
 
     <ul class="circles">
         <li></li><li></li><li></li><li></li><li></li>
         <li></li><li></li><li></li><li></li><li></li>
     </ul>
 
+    <!-- 1. النافذة المنبثقة الترحيبية للتنبيه بالصيانة الطارئة -->
+    <div class="modal-overlay" id="emergencyModal">
+        <div class="modal-box">
+            <div class="modal-logo-mini">
+                <svg width="58" height="58" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="mGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#f59e0b"/>
+                            <stop offset="100%" stop-color="#2563eb"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="120" height="120" rx="26" fill="#0f172a"/>
+                    <rect x="5" y="5" width="110" height="110" rx="22" fill="none" stroke="url(#mGrad)" stroke-width="5"/>
+                    <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#mGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="90" cy="34" r="7" fill="#f59e0b"/>
+                    <text x="60" y="102" font-family="Cairo, Arial, sans-serif" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle">AD$</text>
+                </svg>
+            </div>
+            <h2>⚠️ تنبيه: صيانة وتحديث طارئ</h2>
+            <p>نعتذر لعملائنا وشركائنا الأعزاء، تخضع منصة <strong>AD$ للتمويل الإعلاني</strong> حالياً لتحديثات مجدولة لرفع كفاءة بوابة التسوية الفورية. سيتم فتح المنصة تلقائياً فور انتهاء العداد.</p>
+            <button class="modal-btn" onclick="closeModal()">فهمت، عرض عداد الوقت المتبقي</button>
+        </div>
+    </div>
+
+    <!-- 2. البطاقة الرئيسية للصيانة -->
     <div class="container">
-        <div class="icon-box" onclick="closeModal()">🛠️</div>
+        <!-- شعار الموقع الموحد (يدعم التثبيت كتطبيق أيضاً) -->
+        <div class="brand-logo-wrap" id="logoBrandBtn" title="منصة AD$ للتمويل الإعلاني">
+            <div class="logo-svg-box">
+                <svg width="48" height="48" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#2563eb"/>
+                            <stop offset="100%" stop-color="#10b981"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="120" height="120" rx="26" fill="#0f172a"/>
+                    <rect x="5" y="5" width="110" height="110" rx="22" fill="none" stroke="url(#logoGrad)" stroke-width="5"/>
+                    <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="90" cy="34" r="7" fill="#10b981"/>
+                    <text x="60" y="102" font-family="Cairo, Arial, sans-serif" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle">AD$</text>
+                </svg>
+                <span class="gear-badge">⚙</span>
+            </div>
+            <div class="brand-text-col">
+                <span class="brand-title">منصة AD$ للتمويل الإعلاني</span>
+                <span class="brand-sub" id="brandSubHint">بوابة الناشرين والتسوية اللحظية</span>
+            </div>
+        </div>
+
+        <div>
+            <div class="maintenance-tag">
+                <span class="tag-dot"></span>
+                تحديث خوادم التسوية والربط البنكي
+            </div>
+        </div>
+
         <h1>نحن نقوم بتحديثات وتحسينات لأجلك!</h1>
-        <p>الموقع خاضع حالياً لصيانة دورية. سيتم فتح الموقع تلقائياً بمجرد انتهاء الوقت أدناه:</p>
+        <p class="desc">المنصة خاضعة حالياً لصيانة دورية لضمان سرعة صرف العوائد الإعلانية. سيتم تحويلك إلى لوحة التحكم تلقائياً بمجرد انتهاء الوقت أدناه:</p>
 
         <div class="countdown-grid">
-            <div class="time-box"><span id="hours">00</span><label>ساعات</label></div>
-            <div class="time-box"><span id="minutes">00</span><label>دقائق</label></div>
-            <div class="time-box"><span id="seconds">00</span><label>ثواني</label></div>
+            <div class="time-box">
+                <span id="hours">00</span>
+                <label>ساعات</label>
+            </div>
+            <div class="time-box">
+                <span id="minutes">00</span>
+                <label>دقائق</label>
+            </div>
+            <div class="time-box">
+                <span id="seconds">00</span>
+                <label>ثواني</label>
+            </div>
         </div>
 
         <div class="status-badge" id="status-text">🔄 جارِ جلب حالة النظام...</div>
 
-        <!-- زر المشرف المخفي افتراضياً ولا يظهر إلا في الرابط السري -->
-        <div class="admin-trigger" id="adminTriggerBtn" style="display: none;" onclick="verifyAndSetTime()">⚙️ اضبط وقت الصيانة (للمشرف)</div>
+        <!-- زر المشرف المخفي افتراضياً ولا يظهر إلا في الرابط السري /dev-panel-lock -->
+        <div>
+            <button type="button" class="admin-trigger" id="adminTriggerBtn" onclick="openAdminModal()">
+                ⚙️ ضبط وقت الصيانة أو إيقافها (للمشرف)
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. نافذة المشرف المخصصة لضبط وقت الصيانة (بديل احترافي عن prompt) -->
+    <div class="modal-overlay" id="adminModal" style="display: none;">
+        <div class="modal-box">
+            <h2 style="color: #60a5fa;">⚙️ إدارة وضع الصيانة</h2>
+            <p style="margin-bottom: 1rem;">أدخل كلمة مرور المشرف وحدد مدة الصيانة بالدقائق (أو 0 لفتح الموقع فوراً)</p>
+
+            <div class="admin-input-group">
+                <label for="adminPassField">🔒 كلمة مرور المشرف</label>
+                <input type="password" id="adminPassField" class="admin-input" placeholder="أدخل كلمة المرور السرية...">
+            </div>
+
+            <div class="admin-input-group">
+                <label for="adminMinsField">⏱️ مدة الصيانة بالدقائق (0 = إلغاء الصيانة)</label>
+                <input type="number" id="adminMinsField" class="admin-input" min="0" placeholder="مثال: 30" value="30">
+                <div class="preset-chips">
+                    <button type="button" class="chip-btn" onclick="setMinsPreset(15)">15 دقيقة</button>
+                    <button type="button" class="chip-btn" onclick="setMinsPreset(30)">30 دقيقة</button>
+                    <button type="button" class="chip-btn" onclick="setMinsPreset(60)">60 دقيقة</button>
+                    <button type="button" class="chip-btn stop-chip" onclick="setMinsPreset(0)">فتح الموقع (0)</button>
+                </div>
+            </div>
+
+            <div id="adminFeedback" class="admin-feedback"></div>
+
+            <div class="admin-modal-actions">
+                <button type="button" class="modal-btn" id="saveMaintBtn" onclick="submitMaintenanceTime()" style="flex: 1.5; padding: 0.8rem;">حفظ وتطبيق</button>
+                <button type="button" class="btn-cancel" onclick="closeAdminModal()">إلغاء</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        if (window.location.pathname === "/dev-panel-lock") {
-            document.getElementById("adminTriggerBtn").style.display = "block";
+        // =========================================================================
+        // ضع رابط سيرفر Render هنا (أو اتركه كما هو إذا كانت الصفحة داخل Render)
+        // =========================================================================
+        const RENDER_SERVER_URL = "https://your-app.onrender.com";
+        const API_BASE = RENDER_SERVER_URL.includes("your-app") ? "" : RENDER_SERVER_URL;
+
+        // إظهار زر المشرف في الرابط السري /dev-panel-lock
+        if (window.location.pathname === "/dev-panel-lock" || window.location.search.includes("admin=1")) {
+            document.getElementById("adminTriggerBtn").style.display = "inline-block";
         }
 
-        // إغلاق النافذة المنبثقة عند الضغط عليها
+        // دعم تثبيت التطبيق عند الضغط على الشعار أو فتح نافذة المشرف بـ 5 ضغطات متتالية
+        let deferredInstallPrompt = null;
+        let logoTapCount = 0;
+        let logoTapTimer = null;
+
+        window.addEventListener("beforeinstallprompt", (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            document.getElementById("brandSubHint").textContent = "📲 اضغط لتثبيت التطبيق على جهازك";
+        });
+
+        document.getElementById("logoBrandBtn").addEventListener("click", async () => {
+            // ميزة خفية للمشرف: الضغط 5 مرات متتالية على الشعار يظهر زر إدارة الصيانة
+            logoTapCount++;
+            clearTimeout(logoTapTimer);
+            logoTapTimer = setTimeout(() => { logoTapCount = 0; }, 1500);
+            if (logoTapCount >= 5) {
+                document.getElementById("adminTriggerBtn").style.display = "inline-block";
+                openAdminModal();
+                logoTapCount = 0;
+                return;
+            }
+
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                deferredInstallPrompt = null;
+            } else {
+                closeModal();
+            }
+        });
+
         function closeModal() {
             document.getElementById("emergencyModal").style.display = "none";
         }
 
+        function openAdminModal() {
+            document.getElementById("adminFeedback").style.display = "none";
+            document.getElementById("adminModal").style.display = "flex";
+            setTimeout(() => document.getElementById("adminPassField").focus(), 100);
+        }
+
+        function closeAdminModal() {
+            document.getElementById("adminModal").style.display = "none";
+        }
+
+        function setMinsPreset(val) {
+            document.getElementById("adminMinsField").value = val;
+        }
+
         async function updateCountdown() {
             try {
-                let res = await fetch('/api/maintenance/status');
+                let res = await fetch(`${API_BASE}/api/maintenance/status`);
                 let data = await res.json();
                 let targetTime = data.endTime || 0;
                 let now = Date.now();
@@ -131,8 +687,8 @@
                     document.getElementById("hours").innerText = "00";
                     document.getElementById("minutes").innerText = "00";
                     document.getElementById("seconds").innerText = "00";
-                    document.getElementById("status-text").innerText = "🟢 تم انتهاء الصيانة، جارِ فتح الموقع...";
-                    
+                    document.getElementById("status-text").innerText = "🟢 تم انتهاء الصيانة، جارِ فتح المنصة...";
+
                     if (window.location.pathname !== "/dev-panel-lock") {
                         window.location.href = "/?t=" + Date.now();
                     }
@@ -148,27 +704,39 @@
                 document.getElementById("minutes").innerText = String(minutes).padStart(2, '0');
                 document.getElementById("seconds").innerText = String(seconds).padStart(2, '0');
                 document.getElementById("status-text").innerText = "🔄 الصيانة مفعلة وتعمل الآن للجميع";
-
             } catch (e) {
                 console.log("خطأ في الاتصال بالسيرفر، إعادة المحاولة...");
             }
         }
 
-        async function verifyAndSetTime() {
-            let password = prompt("🔒 يرجى إدخال كلمة مرور المشرف:");
-            if (!password) return;
+        async function submitMaintenanceTime() {
+            const password = document.getElementById("adminPassField").value.trim();
+            const minutesInput = document.getElementById("adminMinsField").value;
+            const feedback = document.getElementById("adminFeedback");
+            const saveBtn = document.getElementById("saveMaintBtn");
 
-            let minutesInput = prompt("أدخل عدد دقائق الصيانة (أو اكتب 0 لإلغاء الصيانة وفتح الموقع فوراً):");
-            if (minutesInput === null) return;
-
-            let mins = parseInt(minutesInput, 10);
-            if (isNaN(mins) || mins < 0) {
-                alert("قيمة غير صالحة!");
+            if (!password) {
+                feedback.style.display = "block";
+                feedback.style.background = "rgba(244, 63, 94, 0.15)";
+                feedback.style.color = "#fb7185";
+                feedback.textContent = "⚠️ يرجى إدخال كلمة مرور المشرف.";
                 return;
             }
 
+            const mins = parseInt(minutesInput, 10);
+            if (isNaN(mins) || mins < 0) {
+                feedback.style.display = "block";
+                feedback.style.background = "rgba(244, 63, 94, 0.15)";
+                feedback.style.color = "#fb7185";
+                feedback.textContent = "⚠️ قيمة الدقائق غير صالحة!";
+                return;
+            }
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = "جاري الحفظ...";
+
             try {
-                let response = await fetch("/api/maintenance/set", {
+                let response = await fetch(`${API_BASE}/api/maintenance/set`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ password: password, minutes: mins })
@@ -177,14 +745,25 @@
                 let result = await response.json();
 
                 if (result.success) {
-                    alert(result.message);
-                    location.reload();
+                    feedback.style.display = "block";
+                    feedback.style.background = "rgba(16, 185, 129, 0.15)";
+                    feedback.style.color = "#34d399";
+                    feedback.textContent = "✅ " + result.message;
+                    setTimeout(() => location.reload(), 900);
                 } else {
-                    alert("❌ " + result.message);
+                    feedback.style.display = "block";
+                    feedback.style.background = "rgba(244, 63, 94, 0.15)";
+                    feedback.style.color = "#fb7185";
+                    feedback.textContent = "❌ " + (result.message || "كلمة المرور غير صحيحة");
                 }
             } catch (err) {
-                console.error(err);
-                alert("حدث خطأ أثناء الاتصال بالخادم.");
+                feedback.style.display = "block";
+                feedback.style.background = "rgba(244, 63, 94, 0.15)";
+                feedback.style.color = "#fb7185";
+                feedback.textContent = "❌ حدث خطأ أثناء الاتصال بالخادم.";
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = "حفظ وتطبيق";
             }
         }
 
@@ -192,7 +771,7 @@
         setInterval(updateCountdown, 1000);
         updateCountdown();
 
-        // إعادة فحص فورية عند فتح شاشة الهاتف أو العودة للتبويب بعد الخمول
+        // إعادة فحص فورية عند فتح شاشة الهاتف أو العودة للتبويب
         document.addEventListener("visibilitychange", () => {
             if (!document.hidden) {
                 updateCountdown();
