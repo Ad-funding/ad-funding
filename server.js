@@ -476,6 +476,75 @@ app.get("/sw.js", (req, res) => {
     `);
 });
 
+// ============================================================================
+// مسارات إدارة وضع الصيانة الطارئة والرابط السري للمشرف (/dev-panel-lock)
+// ============================================================================
+
+// تحويل الزوار تلقائياً إلى صفحة الصيانة إذا كان وقت الصيانة مفعلاً
+app.get("/", (req, res, next) => {
+    const endTime = appState.maintenanceEndTime || 0;
+    if (endTime > Date.now()) {
+        return res.sendFile(path.join(__dirname, "maintenance.html"));
+    }
+    next();
+});
+
+// الرابط السري للمشرف لضبط وقت الصيانة
+app.get("/dev-panel-lock", (req, res) => {
+    res.sendFile(path.join(__dirname, "maintenance.html"));
+});
+
+// جلب حالة الصيانة والوقت المتبقي
+app.get("/api/maintenance/status", (req, res) => {
+    const endTime = appState.maintenanceEndTime || 0;
+    if (endTime > 0 && Date.now() >= endTime) {
+        appState.maintenanceEndTime = 0;
+        saveState(appState);
+    }
+    res.json({
+        active: (appState.maintenanceEndTime || 0) > Date.now(),
+        endTime: appState.maintenanceEndTime || 0
+    });
+});
+
+// ضبط أو إيقاف وقت الصيانة بكلمة مرور المشرف
+app.post("/api/maintenance/set", (req, res) => {
+    const { password, minutes } = req.body || {};
+
+    if (!password || String(password).trim() !== ADMIN_PASSWORD) {
+        return res.status(403).json({
+            success: false,
+            message: "كلمة مرور المشرف غير صحيحة!"
+        });
+    }
+
+    const mins = parseInt(minutes, 10);
+    if (isNaN(mins) || mins < 0) {
+        return res.status(400).json({
+            success: false,
+            message: "عدد الدقائق غير صالح."
+        });
+    }
+
+    if (mins === 0) {
+        appState.maintenanceEndTime = 0;
+        saveState(appState);
+        return res.json({
+            success: true,
+            message: "تم إيقاف الصيانة وفتح الموقع للجميع فوراً!"
+        });
+    }
+
+    appState.maintenanceEndTime = Date.now() + (mins * 60 * 1000);
+    saveState(appState);
+
+    res.json({
+        success: true,
+        message: `تم تفعيل وضع الصيانة لمدة ${mins} دقيقة بنجاح!`,
+        endTime: appState.maintenanceEndTime
+    });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
