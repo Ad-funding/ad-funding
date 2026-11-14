@@ -367,6 +367,61 @@ app.post("/api/clear", (req, res) => {
     });
 });
 
+// ============================================================================
+// مسارات تحويل الموقع إلى تطبيق قابل للتثبيت (PWA) وأيقونة التطبيق
+// ============================================================================
+const APP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="#0f172a"/>
+  <rect x="6" y="6" width="108" height="108" rx="22" fill="none" stroke="url(#g)" stroke-width="5"/>
+  <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="90" cy="34" r="7" fill="#10b981"/>
+  <text x="60" y="102" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#ffffff" text-anchor="middle">AD$</text>
+</svg>`;
+
+app.get("/app-icon.svg", (req, res) => {
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.send(APP_ICON_SVG);
+});
+
+app.get("/manifest.json", (req, res) => {
+    res.json({
+        name: "منصة AD$ لعوائد التمويل الإعلاني",
+        short_name: "عوائد AD$",
+        description: "لوحة تحكم عوائد الحملات الإعلانية والمكافآت الترويجية",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#070b14",
+        theme_color: "#070b14",
+        orientation: "portrait",
+        icons: [
+            {
+                src: "/app-icon.svg",
+                sizes: "192x192 512x512",
+                type: "image/svg+xml",
+                purpose: "any maskable"
+            }
+        ]
+    });
+});
+
+app.get("/sw.js", (req, res) => {
+    res.setHeader("Content-Type", "application/javascript");
+    res.send(`
+        self.addEventListener('install', () => self.skipWaiting());
+        self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+        self.addEventListener('fetch', (e) => {
+            if (e.request.method !== 'GET') return;
+            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+        });
+    `);
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
