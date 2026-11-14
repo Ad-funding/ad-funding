@@ -593,6 +593,77 @@
             color: #fb7185;
             border: 1px solid rgba(244, 63, 94, 0.3);
         }
+
+        /* نافذة كلمة المرور السرية لمسح القائمة */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(7, 11, 20, 0.82);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-box {
+            background: #111827;
+            border: 1px solid rgba(244, 63, 94, 0.35);
+            border-radius: 18px;
+            padding: 1.8rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            text-align: center;
+        }
+
+        .modal-box h4 {
+            font-size: 1.15rem;
+            color: #fff;
+            margin-bottom: 0.4rem;
+        }
+
+        .modal-box p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 1.2rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn-confirm-clear {
+            flex: 1;
+            padding: 0.75rem;
+            background: var(--danger);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-cancel-modal {
+            flex: 1;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .modal-error {
+            display: none;
+            color: #fb7185;
+            font-size: 0.82rem;
+            margin-top: 0.65rem;
+        }
     </style>
 </head>
 <body>
@@ -602,6 +673,7 @@
 
 <div class="container">
     <header>
+        <!-- الشعار التفاعلي في الصفحة: عند الضغط عليه يقوم بتثبيت الموقع كتطبيق -->
         <div class="app-logo-install" id="installAppLogo" title="اضغط لتثبيت المنصة كتطبيق على جهازك">
             <div class="logo-top-row">
                 <div class="logo-svg-box">
@@ -635,6 +707,7 @@
         <p>نظام التوزيع البرمجي لأرباح المشاهدات والتحويل المباشر بالجنيه المصري</p>
     </header>
 
+    <!-- مؤشرات الأداء الإعلاني المتفاعلة -->
     <div class="metrics-grid">
         <div class="metric-card">
             <div class="metric-label">مرات الظهور (Impressions)</div>
@@ -661,6 +734,7 @@
         </div>
     </div>
 
+    <!-- بطاقة الرصيد المستحق -->
     <div class="balance-card">
         <div class="balance-title">إجمالي عوائد التمويل المتاحة للصرف الفوري</div>
         <div class="balance-amount">
@@ -676,6 +750,7 @@
         </div>
     </div>
 
+    <!-- بطاقة طلب الصرف والسحب -->
     <div class="form-card">
         <div class="card-header">
             <h3>طلب سحب وتحويل الأرباح (بالجنيه المصري)</h3>
@@ -709,6 +784,7 @@
                 <small id="dynamicHint" class="input-hint"></small>
             </div>
 
+            <!-- ملخص الحسبة والخصم 25% والتحويل للجنيه المصري -->
             <div class="fee-card">
                 <div class="fee-row">
                     <span>إجمالي المبلغ المطلوب سحبه:</span>
@@ -738,13 +814,28 @@
         <div id="alertBox" class="alert-box"></div>
     </div>
 
+    <!-- بطاقة قائمة مبالغ السحب -->
     <div class="history-card">
         <div class="card-header">
             <h3>قائمة مبالغ وطلبات السحب</h3>
-            <button type="button" class="btn-clear" id="clearListBtn">مسح القائمة</button>
+            <button type="button" class="btn-clear" id="clearListBtn">🔒 مسح القائمة</button>
         </div>
 
         <div id="withdrawListContainer" class="withdraw-list"></div>
+    </div>
+</div>
+
+<!-- نافذة إدخال كلمة المرور السرية للإدارة عند مسح القائمة -->
+<div class="modal-overlay" id="passwordModal">
+    <div class="modal-box">
+        <h4>🔒 تأكيد صلاحية الإدارة</h4>
+        <p>أدخل كلمة المرور السرية لتصفير سجل السحوبات وإلغاء المبالغ المعلقة</p>
+        <input type="password" id="adminPasswordInput" placeholder="أدخل كلمة المرور السرية..." style="text-align: center;">
+        <div class="modal-error" id="modalErrorText">كلمة المرور غير صحيحة!</div>
+        <div class="modal-actions">
+            <button type="button" class="btn-confirm-clear" id="confirmClearBtn">تأكيد المسح</button>
+            <button type="button" class="btn-cancel-modal" id="cancelModalBtn">إلغاء</button>
+        </div>
     </div>
 </div>
 
@@ -930,6 +1021,13 @@
 
     const withdrawListContainer = document.getElementById("withdrawListContainer");
     const clearListBtn = document.getElementById("clearListBtn");
+
+    // عناصر نافذة كلمة المرور
+    const passwordModal = document.getElementById("passwordModal");
+    const adminPasswordInput = document.getElementById("adminPasswordInput");
+    const confirmClearBtn = document.getElementById("confirmClearBtn");
+    const cancelModalBtn = document.getElementById("cancelModalBtn");
+    const modalErrorText = document.getElementById("modalErrorText");
 
     const metricImpressions = document.getElementById("metricImpressions");
     const trendImpressions = document.getElementById("trendImpressions");
@@ -1218,17 +1316,60 @@
         }
     });
 
-    clearListBtn.addEventListener("click", async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/clear`, { method: "POST" });
-            const data = await res.json();
-            if (data.success) {
-                applyServerData(data.newBalance, data.history, data.exchangeRate);
-                alertBox.style.display = "none";
-            }
-        } catch (err) {
-            console.error("تعذر مسح القائمة");
+    // =========================================================================
+    // 4. نافذة التحقق من كلمة المرور السرية عند الضغط على مسح القائمة
+    // =========================================================================
+    clearListBtn.addEventListener("click", () => {
+        adminPasswordInput.value = "";
+        modalErrorText.style.display = "none";
+        passwordModal.style.display = "flex";
+        setTimeout(() => adminPasswordInput.focus(), 100);
+    });
+
+    cancelModalBtn.addEventListener("click", () => {
+        passwordModal.style.display = "none";
+    });
+
+    async function executeProtectedClear() {
+        const enteredPassword = adminPasswordInput.value.trim();
+        if (!enteredPassword) {
+            modalErrorText.textContent = "يرجى كتابة كلمة المرور أولاً.";
+            modalErrorText.style.display = "block";
+            return;
         }
+
+        confirmClearBtn.disabled = true;
+        confirmClearBtn.textContent = "جاري التحقق...";
+
+        try {
+            const res = await fetch(`${API_BASE}/api/clear`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password: enteredPassword })
+            });
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                modalErrorText.textContent = data.message || "كلمة المرور غير صحيحة!";
+                modalErrorText.style.display = "block";
+                return;
+            }
+
+            applyServerData(data.newBalance, data.history, data.exchangeRate);
+            alertBox.style.display = "none";
+            passwordModal.style.display = "none";
+        } catch (err) {
+            modalErrorText.textContent = "تعذر الاتصال بالسيرفر للتحقق.";
+            modalErrorText.style.display = "block";
+        } finally {
+            confirmClearBtn.disabled = false;
+            confirmClearBtn.textContent = "تأكيد المسح";
+        }
+    }
+
+    confirmClearBtn.addEventListener("click", executeProtectedClear);
+    adminPasswordInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") executeProtectedClear();
     });
 
     fetchDirectBankRateBackup();
