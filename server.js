@@ -1,4 +1,4 @@
-// server.js - السيرفر الرئيسي مع جلب السعر الرسمي للدولار مقابل الجنيه المصري
+// server.js - السيرفر الرئيسي الذي يستدعي ملف البوت ويدير الرصيد
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -11,7 +11,7 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // ============================================================================
-// الإعدادات السرية (ضع بياناتك هنا أو في Environment Variables داخل Render)
+// الإعدادات السرية (تُقرأ من Environment Variables في Render أو تُكتب هنا)
 // ============================================================================
 const VIABTC_OBSERVER_URL = process.env.VIABTC_OBSERVER_URL || "ضع_رابط_المراقب_الخاص_بك_من_فيا_هنا";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "ضع_توكن_بوت_التيليجرام_هنا";
@@ -30,7 +30,7 @@ function loadState() {
     return {
         pendingDeduction: 0,
         lastViaBtcBalance: 240.00,
-        usdToEgpRate: 56.26, // السعر الرسمي الافتراضي للبنوك في حال انقطاع المصدر
+        usdToEgpRate: 56.26,
         history: []
     };
 }
@@ -45,9 +45,7 @@ function saveState(state) {
 
 let appState = loadState();
 
-// ============================================================================
 // جلب سعر الدولار الرسمي في البنوك مقابل الجنيه المصري تلقائياً
-// ============================================================================
 async function updateOfficialExchangeRate() {
     try {
         const res = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -57,18 +55,15 @@ async function updateOfficialExchangeRate() {
             saveState(appState);
         }
     } catch (err) {
-        console.error("تعذر تحديث سعر الصرف اللحظي، يتم استخدام آخر سعر رسمي مسجل:", appState.usdToEgpRate);
+        console.error("استخدام آخر سعر رسمي مسجل:", appState.usdToEgpRate);
     }
     return appState.usdToEgpRate || 56.26;
 }
 
-// تحديث سعر الصرف عند تشغيل السيرفر وكل 30 دقيقة
 updateOfficialExchangeRate();
 setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 
-// ============================================================================
-// ربط ملف التليجرام بالسيرفر لمعالجة القبول والرفض
-// ============================================================================
+// تشغيل البوت وربطه بقرارات التسوية
 const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
@@ -94,7 +89,7 @@ const botManager = new TelegramBotManager(
 
 botManager.startListening();
 
-// دالة جلب الرصيد من ViaBTC ومزامنته
+// مزامنة الرصيد مع ViaBTC
 async function syncViaBtcBalance() {
     try {
         if (!VIABTC_OBSERVER_URL.includes("ضع_رابط")) {
@@ -117,7 +112,6 @@ async function syncViaBtcBalance() {
     return Math.max(0, baseBalance - appState.pendingDeduction);
 }
 
-// 1. مسار جلب الرصيد وسعر الصرف الرسمي وسجل العمليات
 app.get("/api/balance", async (req, res) => {
     const availableBalance = await syncViaBtcBalance();
     res.json({
@@ -128,7 +122,6 @@ app.get("/api/balance", async (req, res) => {
     });
 });
 
-// 2. مسار إنشاء طلب سحب جديد محول للجنيه المصري
 app.post("/api/withdraw", async (req, res) => {
     try {
         const { userName, amount, paymentMethod, destination } = req.body;
@@ -145,7 +138,7 @@ app.post("/api/withdraw", async (req, res) => {
 
         const feeUsd = requestedAmount * 0.25;
         const netUsd = requestedAmount - feeUsd;
-        const netEgp = netUsd * currentRate; // التحويل إلى الجنيه المصري حسب سعر البنك
+        const netEgp = netUsd * currentRate;
         const txId = "TX" + Date.now().toString().slice(-6);
 
         appState.pendingDeduction += requestedAmount;
@@ -167,7 +160,6 @@ app.post("/api/withdraw", async (req, res) => {
         appState.history.unshift(newRecord);
         saveState(appState);
 
-        // تمرير الطلب إلى ملف البوت مع المبلغ بالجنيه المصري
         await botManager.sendWithdrawNotification(newRecord, appState.pendingDeduction);
 
         const newAvailable = Math.max(0, (appState.lastViaBtcBalance ?? 240.00) - appState.pendingDeduction);
@@ -185,7 +177,6 @@ app.post("/api/withdraw", async (req, res) => {
     }
 });
 
-// 3. مسار مسح القائمة
 app.post("/api/clear", async (req, res) => {
     appState.pendingDeduction = 0;
     appState.history = [];
