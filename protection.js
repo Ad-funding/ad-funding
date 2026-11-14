@@ -157,7 +157,7 @@
 
     // 8. تثبيت واسترجاع شريط الحقوق تلقائياً إذا حُذف (بدون إغلاق الصفحة)
     const TARGET_URL = 'https://ad-funding.onrender.com';
-    const AUTHOR_NAME = 'شركاء منتدابون';
+    const AUTHOR_NAME = 'الناشرين';
     const STORE_NAME = 'التمويل الأعلاني';
 
     function keepRightsFooterAlive() {
