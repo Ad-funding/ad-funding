@@ -1,7 +1,7 @@
 {
-  "name": "tales-ad-funding-portal",
+  "name": "ad-funding",
   "version": "1.0.0",
-  "description": "Ad Rewards & Payout Portal with ViaBTC Sync, EGP Conversion, and Telegram Bot Control",
+  "description": "Ad Funding & Rewards Portal with ViaBTC Sync and Telegram Bot Control",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
