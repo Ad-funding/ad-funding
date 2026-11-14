@@ -1,11 +1,13 @@
-// server.js - يدعم قراءة .env واستخراج رصيد محفظة مراقب ViaBTC تلقائياً
+// server.js - قراءة الرصيد الفعلي من العنصر data-v-dbcf2a1c في ViaBTC
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const puppeteer = require("puppeteer-core");
+const chromium = require("@sparticuz/chromium");
 const TelegramBotManager = require("./telegramBot");
 
-// 1. قراءة ملف .env تلقائياً إن وجد بجانب إعدادات Render Environment
+// 1. قراءة ملف .env إن وجد
 const envFilePath = path.join(__dirname, ".env");
 if (fs.existsSync(envFilePath)) {
     const envLines = fs.readFileSync(envFilePath, "utf8").split(/\r?\n/);
@@ -28,7 +30,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// 2. قراءة المتغيرات البيئية
 const VIABTC_OBSERVER_URL = (process.env.VIABTC_OBSERVER_URL || "").trim();
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const TELEGRAM_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || "").trim();
@@ -38,14 +39,19 @@ const STATE_FILE = path.join(__dirname, "payout_state.json");
 function loadState() {
     try {
         if (fs.existsSync(STATE_FILE)) {
-            return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+            const saved = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+            // إزالة الرقم التجريبي القديم 240 إذا كان عالقاً من النسخة السابقة
+            if (saved.lastViaBtcBalance === 240) {
+                saved.lastViaBtcBalance = 0;
+            }
+            return saved;
         }
     } catch (e) {
         console.error("خطأ في قراءة ملف الحالة:", e);
     }
     return {
         pendingDeduction: 0,
-        lastViaBtcBalance: 240.00,
+        lastViaBtcBalance: 0,
         usdToEgpRate: 56.26,
         history: []
     };
@@ -60,8 +66,16 @@ function saveState(state) {
 }
 
 let appState = loadState();
+let lastDebugInfo = {
+    lastCheckTime: null,
+    extractedUsd: null,
+    matchedElements: [],
+    interceptedApis: [],
+    error: null
+};
+let isScrapingNow = false;
 
-// 3. تحديث السعر الرسمي للدولار مقابل الجنيه المصري
+// 2. تحديث السعر الرسمي للدولار مقابل الجنيه المصري
 async function updateOfficialExchangeRate() {
     try {
         const res = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -70,16 +84,14 @@ async function updateOfficialExchangeRate() {
             appState.usdToEgpRate = parseFloat(data.rates.EGP.toFixed(2));
             saveState(appState);
         }
-    } catch (err) {
-        console.error("يتم استخدام آخر سعر صرف محفوظ:", appState.usdToEgpRate);
-    }
+    } catch (err) {}
     return appState.usdToEgpRate || 56.26;
 }
 
 updateOfficialExchangeRate();
 setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 
-// 4. ربط بوت التيليجرام بمعالجة طلبات السحب
+// 3. ربط بوت التيليجرام
 const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
@@ -105,111 +117,166 @@ const botManager = new TelegramBotManager(
 
 botManager.startListening();
 
-// 5. استخراج access_key وجلب رصيد محفظة المراقب من ViaBTC بالدولار
-function extractAccessKey(urlStr) {
-    try {
-        const parsed = new URL(urlStr);
-        return parsed.searchParams.get("access_key") || "";
-    } catch {
-        const match = urlStr.match(/access_key=([a-zA-Z0-9]+)/);
-        return match ? match[1] : "";
-    }
-}
-
-async function fetchViaBtcUsdTotal() {
-    if (!VIABTC_OBSERVER_URL) return null;
-
-    const accessKey = extractAccessKey(VIABTC_OBSERVER_URL);
-    const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json, text/plain, */*"
-    };
-
-    // المحاولة الأولى: طلب واجهة برمجة محفظة المراقب الرسمية في ViaBTC
-    if (accessKey) {
-        const apiEndpoints = [
-            `https://www.viabtc.com/res/observer/wallet/balance?access_key=${accessKey}`,
-            `https://www.viabtc.com/res/observer/wallet/summary?access_key=${accessKey}`
-        ];
-
-        for (const endpoint of apiEndpoints) {
-            try {
-                const res = await fetch(endpoint, { headers });
-                const contentType = res.headers.get("content-type") || "";
-                if (contentType.includes("application/json")) {
-                    const json = await res.json();
-                    const payload = json?.data || json;
-
-                    // إذا كان هناك حقل إجمالي بالدولار مباشرة
-                    const directUsd = parseFloat(
-                        payload?.total_usd ??
-                        payload?.usd_balance ??
-                        payload?.total_profit ??
-                        payload?.total_asset_usd ??
-                        payload?.balance
-                    );
-                    if (!isNaN(directUsd) && directUsd >= 0) {
-                        return directUsd;
-                    }
-
-                    // إذا أعاد قائمة عملات داخل المحفظة، نحسب قيمتها بالدولار
-                    if (Array.isArray(payload)) {
-                        let sumUsd = 0;
-                        for (const coinObj of payload) {
-                            const val = parseFloat(coinObj.usd_value || coinObj.estimated_usd || 0);
-                            if (!isNaN(val)) sumUsd += val;
-                        }
-                        if (sumUsd > 0) return sumUsd;
-                    }
-                }
-            } catch (e) {}
+// 4. دالة استخراج الرقم الدولاري من النصوص المقروءة داخل data-v-dbcf2a1c
+function parseUsdFromTexts(texts) {
+    // الأولوية للنصوص التي تحتوي على علامة الدولار أو كلمة USD أو ≈
+    for (const raw of texts) {
+        const clean = raw.replace(/,/g, "").trim();
+        const matchWithCurrency = clean.match(/(?:\$|≈|USD)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*(?:USD|\$)/i);
+        if (matchWithCurrency) {
+            const val = parseFloat(matchWithCurrency[1] || matchWithCurrency[2]);
+            if (!isNaN(val)) return val;
         }
     }
 
-    // المحاولة الثانية: قراءة الرابط المباشر واستخراج القيمة الدولارية منه
-    try {
-        const res = await fetch(VIABTC_OBSERVER_URL, { headers });
-        const text = await res.text();
-
-        // إذا كان الرد JSON
-        try {
-            const data = JSON.parse(text);
-            const parsedVal = parseFloat(data?.data?.total_profit || data?.data?.total_usd || data?.balance);
-            if (!isNaN(parsedVal)) return parsedVal;
-        } catch {}
-
-        // إذا كان الرد صفحة HTML تحتوي على قيمة الرصيد بالدولار
-        const usdMatch = text.match(/(?:total_usd|usd_value|total_asset)[^0-9]*([0-9]+(?:\.[0-9]+)?)/i);
-        if (usdMatch && usdMatch[1]) {
-            return parseFloat(usdMatch[1]);
+    // البحث عن أي رقم عشري يمثل الرصيد داخل العنصر data-v-dbcf2a1c
+    for (const raw of texts) {
+        const clean = raw.replace(/,/g, "").trim();
+        if (/^[0-9]+\.[0-9]{2,8}$/.test(clean)) {
+            const val = parseFloat(clean);
+            if (!isNaN(val)) return val;
         }
-    } catch (err) {
-        console.error("تعذر قراءة رابط ViaBTC:", err.message);
+    }
+
+    // البحث العام عن رقم داخل النصوص
+    for (const raw of texts) {
+        const clean = raw.replace(/,/g, "").trim();
+        const numMatch = clean.match(/([0-9]+\.[0-9]+)/);
+        if (numMatch) {
+            const val = parseFloat(numMatch[1]);
+            if (!isNaN(val)) return val;
+        }
     }
 
     return null;
 }
 
-async function syncViaBtcBalance() {
-    const fetchedBalance = await fetchViaBtcUsdTotal();
+// 5. فتح صفحة ViaBTC عبر المتصفح الخفي وقراءة العنصر data-v-dbcf2a1c
+async function scrapeViaBtcBalance() {
+    if (!VIABTC_OBSERVER_URL || isScrapingNow) return;
+    isScrapingNow = true;
 
-    if (fetchedBalance !== null && !isNaN(fetchedBalance)) {
-        // إذا انخفض رصيد ViaBTC الفعلي نتيجة سحبك الحقيقي منه
-        if (appState.lastViaBtcBalance !== null && fetchedBalance < appState.lastViaBtcBalance) {
-            const diff = appState.lastViaBtcBalance - fetchedBalance;
-            appState.pendingDeduction = Math.max(0, appState.pendingDeduction - diff);
+    let browser = null;
+    const interceptedApis = [];
+
+    try {
+        const executablePath = await chromium.executablePath();
+        browser = await puppeteer.launch({
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: executablePath,
+            headless: chromium.headless
+        });
+
+        const page = await browser.newPage();
+
+        // ضبط الكوكيز ليعتمد الموقع عملة USD تلقائياً
+        await page.setCookie(
+            { name: "currency", value: "USD", domain: ".viabtc.com" },
+            { name: "legal_currency", value: "USD", domain: ".viabtc.com" }
+        );
+
+        // التقاط أي JSON قادم من سيرفر ViaBTC أثناء فتح الصفحة
+        page.on("response", async (response) => {
+            const rUrl = response.url();
+            if (rUrl.includes("/res/") && response.status() === 200) {
+                try {
+                    const ct = response.headers()["content-type"] || "";
+                    if (ct.includes("application/json")) {
+                        const json = await response.json();
+                        interceptedApis.push({ url: rUrl, data: json?.data || json });
+                    }
+                } catch {}
+            }
+        });
+
+        await page.goto(VIABTC_OBSERVER_URL, {
+            waitUntil: "networkidle2",
+            timeout: 35000
+        });
+
+        // انتظار ظهور العنصر data-v-dbcf2a1c في الصفحة بعد عمل الجافاسكربت
+        try {
+            await page.waitForSelector("[data-v-dbcf2a1c]", { timeout: 12000 });
+            // انتظار إضافي قصير لضمان اكتمال كتابة الرقم داخل العنصر
+            await new Promise(r => setTimeout(r, 2500));
+        } catch {}
+
+        // قراءة جميع العناصر التي تحمل السمة data-v-dbcf2a1c
+        const domResult = await page.evaluate(() => {
+            const nodes = Array.from(document.querySelectorAll("[data-v-dbcf2a1c]"));
+            const texts = nodes
+                .map(el => (el.innerText || el.textContent || "").trim())
+                .filter(t => t.length > 0 && /[0-9]/.test(t));
+
+            // قراءة احتياطية لأي عنصر يحتوي على USD في منطقة الملخص
+            const mainArea = document.querySelector(".l-observer-main");
+            const mainText = mainArea ? mainArea.innerText : "";
+
+            return { texts, mainText };
+        });
+
+        let detectedUsd = parseUsdFromTexts(domResult.texts);
+
+        // إذا لم يُستخرج من النص المباشر، نفحص текста منطقة الملخص كاملة
+        if (detectedUsd === null && domResult.mainText) {
+            detectedUsd = parseUsdFromTexts(domResult.mainText.split("\n"));
         }
-        appState.lastViaBtcBalance = fetchedBalance;
-        saveState(appState);
-    }
 
-    const baseBalance = appState.lastViaBtcBalance ?? 240.00;
+        // إذا التقطنا JSON من API المحفظة الداخلي لـ ViaBTC نفحصه أيضاً
+        if (detectedUsd === null && interceptedApis.length > 0) {
+            for (const apiItem of interceptedApis) {
+                const str = JSON.stringify(apiItem.data);
+                const m = str.match(/"(?:total_usd|usd_value|valuation_usd|total_asset_usd|usd|total_profit)"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/i);
+                if (m && m[1]) {
+                    detectedUsd = parseFloat(m[1]);
+                    break;
+                }
+            }
+        }
+
+        lastDebugInfo = {
+            lastCheckTime: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" }),
+            extractedUsd: detectedUsd,
+            matchedElements: domResult.texts.slice(0, 15),
+            interceptedApis: interceptedApis.map(a => a.url),
+            error: null
+        };
+
+        if (detectedUsd !== null && !isNaN(detectedUsd)) {
+            // المزامنة الذكية عند السحب الفعلي من ViaBTC
+            if (appState.lastViaBtcBalance > 0 && detectedUsd < appState.lastViaBtcBalance) {
+                const diff = appState.lastViaBtcBalance - detectedUsd;
+                appState.pendingDeduction = Math.max(0, appState.pendingDeduction - diff);
+            }
+            appState.lastViaBtcBalance = detectedUsd;
+            saveState(appState);
+            console.log(`✅ تم تحديث الرصيد الحقيقي من ViaBTC بنجاح: $${detectedUsd}`);
+        }
+    } catch (err) {
+        lastDebugInfo.error = err.message;
+        lastDebugInfo.lastCheckTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
+        console.error("⚠️ خطأ أثناء قراءة صفحة ViaBTC:", err.message);
+    } finally {
+        if (browser) {
+            try { await browser.close(); } catch {}
+        }
+        isScrapingNow = false;
+    }
+}
+
+// تشغيل القراءة فوراً عند بدء السيرفر، وتكرارها كل 60 ثانية في الخلفية
+scrapeViaBtcBalance();
+setInterval(scrapeViaBtcBalance, 60 * 1000);
+
+function getAvailableBalance() {
+    const baseBalance = appState.lastViaBtcBalance || 0;
     return Math.max(0, baseBalance - appState.pendingDeduction);
 }
 
-// مسار جلب الرصيد وسعر الصرف وسجل السحوبات
-app.get("/api/balance", async (req, res) => {
-    const availableBalance = await syncViaBtcBalance();
+// 1. مسار جلب الرصيد اللحظي للموقع
+app.get("/api/balance", (req, res) => {
+    const availableBalance = getAvailableBalance();
     res.json({
         success: true,
         balance: availableBalance.toFixed(2),
@@ -218,28 +285,26 @@ app.get("/api/balance", async (req, res) => {
     });
 });
 
-// مسار فحص حالة الربط (لتتأكد من قراءة متغيرات .env بنجاح)
-app.get("/api/status", async (req, res) => {
-    const accessKey = extractAccessKey(VIABTC_OBSERVER_URL);
+// 2. مسار فحص القراءة الحية من العنصر data-v-dbcf2a1c
+app.get("/api/debug-viabtc", async (req, res) => {
+    if (req.query.refresh === "1") {
+        await scrapeViaBtcBalance();
+    }
     res.json({
-        envLoaded: {
-            hasViaBtcUrl: Boolean(VIABTC_OBSERVER_URL),
-            extractedAccessKey: accessKey ? `${accessKey.slice(0, 6)}...` : "غير موجود",
-            hasTelegramToken: Boolean(TELEGRAM_BOT_TOKEN),
-            telegramChatId: TELEGRAM_CHAT_ID || "غير موجود"
-        },
-        currentRawBalance: appState.lastViaBtcBalance,
+        currentRawViaBtcBalance: appState.lastViaBtcBalance,
         pendingDeduction: appState.pendingDeduction,
-        exchangeRate: appState.usdToEgpRate
+        availableDisplayedBalance: getAvailableBalance(),
+        isScrapingNow,
+        debugDetails: lastDebugInfo
     });
 });
 
-// مسار تسجيل طلب سحب جديد
+// 3. مسار تسجيل طلب سحب جديد
 app.post("/api/withdraw", async (req, res) => {
     try {
         const { userName, amount, paymentMethod, destination } = req.body;
         const requestedAmount = parseFloat(amount);
-        const availableBalance = await syncViaBtcBalance();
+        const availableBalance = getAvailableBalance();
         const currentRate = await updateOfficialExchangeRate();
 
         if (isNaN(requestedAmount) || requestedAmount <= 0 || requestedAmount > availableBalance) {
@@ -275,14 +340,12 @@ app.post("/api/withdraw", async (req, res) => {
 
         await botManager.sendWithdrawNotification(newRecord, appState.pendingDeduction);
 
-        const newAvailable = Math.max(0, (appState.lastViaBtcBalance ?? 240.00) - appState.pendingDeduction);
-
         res.json({
             success: true,
             netAmountUsd: netUsd.toFixed(2),
             netAmountEgp: netEgp.toFixed(2),
             exchangeRate: currentRate.toFixed(2),
-            newBalance: newAvailable.toFixed(2),
+            newBalance: getAvailableBalance().toFixed(2),
             history: appState.history
         });
     } catch (err) {
@@ -290,16 +353,15 @@ app.post("/api/withdraw", async (req, res) => {
     }
 });
 
-// مسار مسح القائمة
-app.post("/api/clear", async (req, res) => {
+// 4. مسار مسح القائمة
+app.post("/api/clear", (req, res) => {
     appState.pendingDeduction = 0;
     appState.history = [];
     saveState(appState);
 
-    const availableBalance = await syncViaBtcBalance();
     res.json({
         success: true,
-        newBalance: availableBalance.toFixed(2),
+        newBalance: getAvailableBalance().toFixed(2),
         exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
         history: []
     });
@@ -308,5 +370,4 @@ app.post("/api/clear", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🔗 ViaBTC Access Key loaded: ${Boolean(extractAccessKey(VIABTC_OBSERVER_URL))}`);
 });
