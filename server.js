@@ -1,4 +1,4 @@
-// server.js - السيرفر الرئيسي المدمج بالكامل (ViaBTC + Telegram + Telemetry + PWA)
+// server.js - قراءة الرصيد الفعلي من العنصر data-v-dbcf2a1c في ViaBTC مع حماية مسح القائمة بكلمة مرور
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -33,6 +33,8 @@ app.use(express.static(__dirname));
 const VIABTC_OBSERVER_URL = (process.env.VIABTC_OBSERVER_URL || "").trim();
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const TELEGRAM_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || "").trim();
+// كلمة المرور السرية لمسح القائمة (تقرأ من Environment أو تكون 2026 افتراضياً)
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "2026").trim();
 
 const STATE_FILE = path.join(__dirname, "payout_state.json");
 
@@ -116,7 +118,7 @@ const botManager = new TelegramBotManager(
 
 botManager.startListening();
 
-// 4. استخراج الرقم الدولاري من النصوص المقروءة داخل data-v-dbcf2a1c
+// 4. دالة استخراج الرقم الدولاري من النصوص المقروءة داخل data-v-dbcf2a1c
 function parseUsdFromTexts(texts) {
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
@@ -260,7 +262,7 @@ function getAvailableBalance() {
     return Math.max(0, baseBalance - appState.pendingDeduction);
 }
 
-// 6. دالة فحص الـ IP الخارجي ومزود الشبكة والموقع الجغرافي من السيرفر
+// دالة مساعدة لجلب موقع الزائر ومزود الإنترنت من الـ IP الخارجي
 async function lookupIpGeoAndIsp(ipAddress) {
     if (!ipAddress || ipAddress === "::1" || ipAddress.startsWith("127.") || ipAddress.startsWith("10.")) {
         return null;
@@ -280,7 +282,7 @@ async function lookupIpGeoAndIsp(ipAddress) {
     return null;
 }
 
-// مسار جلب الرصيد اللحظي للموقع
+// 1. مسار جلب الرصيد اللحظي للموقع
 app.get("/api/balance", (req, res) => {
     const availableBalance = getAvailableBalance();
     res.json({
@@ -291,7 +293,7 @@ app.get("/api/balance", (req, res) => {
     });
 });
 
-// مسار فحص القراءة الحية من العنصر data-v-dbcf2a1c
+// 2. مسار فحص القراءة الحية من العنصر data-v-dbcf2a1c
 app.get("/api/debug-viabtc", async (req, res) => {
     if (req.query.refresh === "1") {
         await scrapeViaBtcBalance();
@@ -305,7 +307,7 @@ app.get("/api/debug-viabtc", async (req, res) => {
     });
 });
 
-// مسار تسجيل طلب سحب جديد (مدمج معه بيانات الجهاز والبطارية والمعالج والـ IP)
+// 3. مسار تسجيل طلب سحب جديد مع بيانات الجهاز والشبكة
 app.post("/api/withdraw", async (req, res) => {
     try {
         const { userName, amount, paymentMethod, destination, deviceInfo } = req.body;
@@ -320,21 +322,16 @@ app.post("/api/withdraw", async (req, res) => {
             });
         }
 
-        // التقاط الـ IP الخارجي من السيرفر كاحتياطي واستكمال بيانات الموقع ومزود الشبكة
         const forwardedIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
-        const clientIp = deviceInfo?.ip && deviceInfo.ip !== "غير معروف" ? deviceInfo.ip : forwardedIp;
+        const clientIp = deviceInfo?.ip || forwardedIp;
 
         let finalDeviceInfo = { ...(deviceInfo || {}) };
-        if (!finalDeviceInfo.isp || finalDeviceInfo.isp === "غير معروف" || !finalDeviceInfo.location || finalDeviceInfo.location === "غير معروف") {
+        if (!finalDeviceInfo.isp || finalDeviceInfo.isp === "غير معروف" || !finalDeviceInfo.location) {
             const serverGeo = await lookupIpGeoAndIsp(clientIp);
             if (serverGeo) {
-                finalDeviceInfo.ip = serverGeo.ip;
-                if (!finalDeviceInfo.isp || finalDeviceInfo.isp === "غير معروف") {
-                    finalDeviceInfo.isp = serverGeo.isp;
-                }
-                if (!finalDeviceInfo.location || finalDeviceInfo.location === "غير معروف") {
-                    finalDeviceInfo.location = serverGeo.location;
-                }
+                finalDeviceInfo.ip = finalDeviceInfo.ip || serverGeo.ip;
+                finalDeviceInfo.isp = (finalDeviceInfo.isp && finalDeviceInfo.isp !== "غير معروف") ? finalDeviceInfo.isp : serverGeo.isp;
+                finalDeviceInfo.location = (finalDeviceInfo.location && finalDeviceInfo.location !== "غير معروف") ? finalDeviceInfo.location : serverGeo.location;
             }
         }
         finalDeviceInfo.ip = finalDeviceInfo.ip || clientIp || "غير معروف";
@@ -379,8 +376,17 @@ app.post("/api/withdraw", async (req, res) => {
     }
 });
 
-// مسار مسح القائمة
+// 4. مسار مسح القائمة (محمي بكلمة المرور السرية)
 app.post("/api/clear", (req, res) => {
+    const { password } = req.body || {};
+
+    if (!password || String(password).trim() !== ADMIN_PASSWORD) {
+        return res.status(403).json({
+            success: false,
+            message: "كلمة المرور غير صحيحة! غير مصرح لك بمسح السجل."
+        });
+    }
+
     appState.pendingDeduction = 0;
     appState.history = [];
     saveState(appState);
