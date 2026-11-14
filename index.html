@@ -183,7 +183,6 @@
             font-size: 0.95rem;
         }
 
-        /* نافذة إرشاد التثبيت السريع */
         .install-toast {
             display: none;
             background: rgba(16, 185, 129, 0.15);
@@ -359,6 +358,22 @@
             font-size: 0.95rem;
             outline: none;
             transition: all 0.2s ease;
+        }
+
+        /* تنسيق خاص لحقول الأرقام (المحفظة والبطاقة) لضمان ترتيب الأرقام من اليسار لليمين بوضوح */
+        .numeric-ltr-input {
+            direction: ltr;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 1.2px;
+            font-weight: 600;
+        }
+
+        .input-hint {
+            display: block;
+            margin-top: 0.4rem;
+            font-size: 0.78rem;
+            color: var(--text-muted);
         }
 
         select {
@@ -683,7 +698,7 @@
 
             <div class="form-group">
                 <label for="withdrawAmount">المبلغ المطلوب سحبه من الرصيد بالدولار ($)</label>
-                <input type="number" id="withdrawAmount" placeholder="أدخل المبلغ بالدولار (مثال: 100)" min="1" step="any" required>
+                <input type="number" id="withdrawAmount" inputmode="decimal" placeholder="أدخل المبلغ بالدولار (مثال: 100)" min="1" step="any" required>
             </div>
 
             <div class="form-group">
@@ -699,6 +714,7 @@
             <div class="form-group" id="dynamicField" style="display: none;">
                 <label id="dynamicLabel" for="destinationDetails">بيانات التحويل</label>
                 <input type="text" id="destinationDetails" required>
+                <small id="dynamicHint" class="input-hint"></small>
             </div>
 
             <!-- ملخص الحسبة والخصم 25% والتحويل للجنيه المصري -->
@@ -757,21 +773,18 @@
     const installStatusText = document.getElementById("installStatusText");
     const installToast = document.getElementById("installToast");
 
-    // تسجيل عامل الخدمة (Service Worker) لتفعيل ميزة التثبيت في المتصفح
     if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
             navigator.serviceWorker.register("/sw.js").catch(() => {});
         });
     }
 
-    // التقاط حدث جاهزية التثبيت من المتصفح
     window.addEventListener("beforeinstallprompt", (e) => {
         e.preventDefault();
         deferredInstallPrompt = e;
         installStatusText.textContent = "📲 اضغط هنا لتثبيت المنصة كتطبيق فوري";
     });
 
-    // عند اكتمال التثبيت بنجاح
     window.addEventListener("appinstalled", () => {
         deferredInstallPrompt = null;
         installStatusText.textContent = "✓ تم تثبيت التطبيق على جهازك";
@@ -780,7 +793,6 @@
         setTimeout(() => { installToast.style.display = "none"; }, 5000);
     });
 
-    // عند الضغط على الشعار في أعلى الصفحة
     installAppLogo.addEventListener("click", async () => {
         if (deferredInstallPrompt) {
             deferredInstallPrompt.prompt();
@@ -790,7 +802,6 @@
             }
             deferredInstallPrompt = null;
         } else {
-            // إرشاد ذكي إذا كان المستخدم يفتح من آيفون (iOS) أو كان التطبيق مثبتاً بالفعل
             installToast.style.display = "block";
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
             if (isIOS) {
@@ -818,6 +829,7 @@
     const dynamicField = document.getElementById("dynamicField");
     const dynamicLabel = document.getElementById("dynamicLabel");
     const destinationInput = document.getElementById("destinationDetails");
+    const dynamicHint = document.getElementById("dynamicHint");
 
     const calcGross = document.getElementById("calcGross");
     const calcFee = document.getElementById("calcFee");
@@ -939,7 +951,7 @@
                         <span>${item.userName} (${item.method})</span>
                         ${statusBadge}
                     </div>
-                    <span class="item-meta">بيانات الاستلام: ${item.destination} | سعر الصرف: ${usedRate} ج.م | ${item.date}</span>
+                    <span class="item-meta">بيانات الاستلام: <b dir="ltr">${item.destination}</b> | سعر الصرف: ${usedRate} ج.م | ${item.date}</span>
                 </div>
                 <div class="item-amounts">
                     <div class="amount-box">
@@ -981,19 +993,67 @@
         }
     }
 
+    // =========================================================================
+    // 3. ضبط خصائص حقل الاستلام وفتح لوحة الأرقام فقط وتنسيق الإدخال
+    // =========================================================================
     methodSelect.addEventListener("change", () => {
         dynamicField.style.display = "block";
         const val = methodSelect.value;
 
         if (val === "محفظة إلكترونية") {
-            dynamicLabel.textContent = "رقم المحفظة الإلكترونية";
-            destinationInput.placeholder = "مثال: 01xxxxxxxx ";
-        } else if (val === "حساب بنكي") {
-            dynamicLabel.textContent = "اسم البنك ورقم الحساب أو الآيبان أو رقم إنستاباي (IBAN)";
-            destinationInput.placeholder = "مثال: البنك الأهلي المصري - EGxxxxxxxxxxxxxxxx";
+            dynamicLabel.textContent = "رقم المحفظة الإلكترونية (11 رقماً يبدأ بـ 01)";
+            destinationInput.value = "01";
+            destinationInput.placeholder = "01xxxxxxxxx";
+            destinationInput.setAttribute("inputmode", "numeric");
+            destinationInput.setAttribute("maxlength", "11");
+            destinationInput.classList.add("numeric-ltr-input");
+            dynamicHint.textContent = "يفتح لوحة الأرقام تلقائياً — يبدأ بـ 01 ومكون من 11 رقماً.";
         } else if (val === "فيزا / ماستركارد") {
-            dynamicLabel.textContent = "رقم البطاقة (16 رقم) واسم صاحب البطاقة بالإنجليزية";
-            destinationInput.placeholder = "مثال: 4123 xxxx xxxx 1234 - MOHAMED AHMED";
+            dynamicLabel.textContent = "رقم بطاقة الفيزا / الماستركارد (16 رقماً)";
+            destinationInput.value = "";
+            destinationInput.placeholder = "XXXX XXXX XXXX XXXX";
+            destinationInput.setAttribute("inputmode", "numeric");
+            destinationInput.setAttribute("maxlength", "19"); // 16 رقماً + 3 مسافات
+            destinationInput.classList.add("numeric-ltr-input");
+            dynamicHint.textContent = "يفتح لوحة الأرقام تلقائياً — يتم تفريق كل 4 أرقام تلقائياً أثناء الكتابة.";
+        } else if (val === "حساب بنكي") {
+            dynamicLabel.textContent = "اسم البنك ورقم الحساب أو الآيبان أو عنوان إنستاباي (IBAN)";
+            destinationInput.value = "";
+            destinationInput.placeholder = "مثال: البنك الأهلي المصري - EGxxxxxxxxxxxxxxxx";
+            destinationInput.setAttribute("inputmode", "text");
+            destinationInput.removeAttribute("maxlength");
+            destinationInput.classList.remove("numeric-ltr-input");
+            dynamicHint.textContent = "أدخل رقم الحساب البنكي أو الآيبان (IBAN) أو عنوان الدفع اللحظي.";
+        }
+    });
+
+    // معالجة الكتابة اللحظية لإجبار الأرقام والتنسيق
+    destinationInput.addEventListener("input", () => {
+        const val = methodSelect.value;
+
+        if (val === "محفظة إلكترونية") {
+            // السماح بالأرقام فقط
+            let digits = destinationInput.value.replace(/\D/g, "");
+
+            // إجبار البداية بـ 01 دائماً
+            if (!digits.startsWith("01")) {
+                if (digits.startsWith("0")) {
+                    digits = "01" + digits.slice(1);
+                } else {
+                    digits = "01" + digits;
+                }
+            }
+
+            // الحد الأقصى 11 رقماً
+            destinationInput.value = digits.slice(0, 11);
+
+        } else if (val === "فيزا / ماستركارد") {
+            // السماح بالأرقام فقط وبحد أقصى 16 رقماً
+            let digits = destinationInput.value.replace(/\D/g, "").slice(0, 16);
+
+            // تفريق كل 4 أرقام بمسافة تلقائياً
+            let formatted = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+            destinationInput.value = formatted;
         }
     });
 
@@ -1014,11 +1074,31 @@
     payoutForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const requestedAmount = parseFloat(amountInput.value) || 0;
+        const selectedMethod = methodSelect.value;
+        const destValue = destinationInput.value.trim();
 
         if (requestedAmount <= 0 || requestedAmount > currentAvailableBalance) {
             alertBox.className = "alert-box alert-danger";
             alertBox.textContent = "المبلغ المطلوب يتجاوز الرصيد المتاح حالياً.";
             alertBox.style.display = "block";
+            return;
+        }
+
+        // التحقق الإجباري من رقم المحفظة (يبدأ بـ 01 ومكون من 11 رقماً)
+        if (selectedMethod === "محفظة إلكترونية" && !/^01[0-9]{9}$/.test(destValue)) {
+            alertBox.className = "alert-box alert-danger";
+            alertBox.textContent = "يرجى إدخال رقم محفظة إلكترونية صحيح يبدأ بـ 01 ومكون من 11 رقماً بالكامل.";
+            alertBox.style.display = "block";
+            destinationInput.focus();
+            return;
+        }
+
+        // التحقق الإجباري من رقم البطاقة (16 رقماً مقسمة كل 4 أرقام)
+        if (selectedMethod === "فيزا / ماستركارد" && !/^(\d{4} ){3}\d{4}$/.test(destValue)) {
+            alertBox.className = "alert-box alert-danger";
+            alertBox.textContent = "يرجى إدخال رقم بطاقة فيزا / ماستركارد مكتمل مكون من 16 رقماً.";
+            alertBox.style.display = "block";
+            destinationInput.focus();
             return;
         }
 
@@ -1029,8 +1109,8 @@
         const payload = {
             userName: document.getElementById("userName").value.trim(),
             amount: requestedAmount,
-            paymentMethod: methodSelect.value,
-            destination: destinationInput.value.trim()
+            paymentMethod: selectedMethod,
+            destination: destValue
         };
 
         try {
