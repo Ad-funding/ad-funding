@@ -1,7 +1,7 @@
 {
   "name": "ad-funding",
   "version": "1.0.0",
-  "description": "Ad Funding & Rewards Portal with ViaBTC Sync and Telegram Bot Control",
+  "description": "Ad Funding & Rewards Portal with ViaBTC Sync, Telegram & WhatsApp OTP",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -11,8 +11,10 @@
   },
   "dependencies": {
     "@sparticuz/chromium": "^131.0.1",
+    "@whiskeysockets/baileys": "^6.7.9",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "pino": "^9.5.0",
     "puppeteer-core": "^23.10.4"
   }
 }
