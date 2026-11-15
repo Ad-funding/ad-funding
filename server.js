@@ -1,15 +1,14 @@
-// server.js - الملف الرئيسي المتكامل (ViaBTC + تيليجرام + الجنيه المصري + نظام الصيانة + PWA)
+// server.js - نظام تعدد المشتركين (لكل مشترك رابط ViaBTC مستقل + تسجيل بالبطاقة + OTP 7 أرقام)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const puppeteer = require("puppeteer-core");
 const chromium = require("@sparticuz/chromium");
 const TelegramBotManager = require("./telegramBot");
 
-// ============================================================================
-// 1. قراءة ملف .env تلقائياً إن وجد بجانب إعدادات Render Environment
-// ============================================================================
+// 1. قراءة ملف .env إن وجد
 const envFilePath = path.join(__dirname, ".env");
 if (fs.existsSync(envFilePath)) {
     const envLines = fs.readFileSync(envFilePath, "utf8").split(/\r?\n/);
@@ -27,86 +26,99 @@ if (fs.existsSync(envFilePath)) {
     }
 }
 
-const VIABTC_OBSERVER_URL = (process.env.VIABTC_OBSERVER_URL || "").trim();
+const DEFAULT_VIABTC_URL = (process.env.VIABTC_OBSERVER_URL || "").trim();
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const TELEGRAM_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || "").trim();
-const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "").trim();
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "2026").trim();
+const WHATSAPP_API_URL = (process.env.WHATSAPP_API_URL || "").trim();
+const WHATSAPP_API_TOKEN = (process.env.WHATSAPP_API_TOKEN || "").trim();
 
-const STATE_FILE = path.join(__dirname, "payout_state.json");
+const STATE_FILE = path.join(__dirname, "multi_payout_state.json");
 
-// ============================================================================
-// 2. تحميل وحفظ حالة النظام (الرصيد، السجل، سعر الصرف، ووقت الصيانة)
-// ============================================================================
 function loadState() {
     try {
         if (fs.existsSync(STATE_FILE)) {
-            const saved = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-            if (saved.lastViaBtcBalance === 240) {
-                saved.lastViaBtcBalance = 0;
-            }
-            return {
-                pendingDeduction: saved.pendingDeduction || 0,
-                lastViaBtcBalance: saved.lastViaBtcBalance || 0,
-                usdToEgpRate: saved.usdToEgpRate || 56.26,
-                maintenanceEndTime: saved.maintenanceEndTime || 0,
-                history: Array.isArray(saved.history) ? saved.history : []
-            };
+            return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
         }
-    } catch (e) {
-        console.error("خطأ في قراءة ملف الحالة:", e);
-    }
+    } catch (e) {}
     return {
-        pendingDeduction: 0,
-        lastViaBtcBalance: 0,
         usdToEgpRate: 56.26,
         maintenanceEndTime: 0,
-        history: []
+        usersState: {}, // حالة الرصيد والسجل لكل رقم هاتف مستقل
+        passwordOverrides: {} // حفظ كلمات المرور المحدثة عبر نسيان الباسورد
     };
 }
 
-function saveState(state) {
+function saveState() {
     try {
-        fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
-    } catch (e) {
-        console.error("خطأ في حفظ ملف الحالة:", e);
-    }
+        fs.writeFileSync(STATE_FILE, JSON.stringify(appState, null, 2), "utf8");
+    } catch (e) {}
 }
 
 let appState = loadState();
-let lastDebugInfo = {
-    lastCheckTime: null,
-    extractedUsd: null,
-    matchedElements: [],
-    interceptedApis: [],
-    error: null
-};
-let isScrapingNow = false;
+const activeSessions = new Map(); // token -> phone
+const otpStore = new Map(); // phone -> { code, expires, purpose }
 
-function getAvailableBalance() {
-    const baseBalance = appState.lastViaBtcBalance || 0;
-    return Math.max(0, baseBalance - appState.pendingDeduction);
+// ============================================================================
+// 2. قراءة حسابات المشتركين من Environment Variables (USER_01xxxxxxxxx)
+// ============================================================================
+function getRegisteredUsersMap() {
+    const users = {};
+
+    for (const [key, val] of Object.entries(process.env)) {
+        if (key.startsWith("USER_01") && val) {
+            const phone = key.replace("USER_", "").trim();
+            const parts = val.split("|").map(s => s.trim());
+            if (parts.length >= 2) {
+                const name = parts[0] || "مشترك معتمد";
+                const envPassword = parts[1];
+                const viabtcUrl = parts[2] || DEFAULT_VIABTC_URL;
+                const finalPassword = appState.passwordOverrides?.[phone] || envPassword;
+
+                users[phone] = {
+                    phone,
+                    name,
+                    password: finalPassword,
+                    viabtcUrl
+                };
+            }
+        }
+    }
+
+    return users;
+}
+
+function ensureUserState(phone) {
+    if (!appState.usersState[phone]) {
+        appState.usersState[phone] = {
+            pendingDeduction: 0,
+            lastViaBtcBalance: 0,
+            history: []
+        };
+    }
+    return appState.usersState[phone];
+}
+
+function getUserAvailableBalance(phone) {
+    const uState = ensureUserState(phone);
+    return Math.max(0, (uState.lastViaBtcBalance || 0) - (uState.pendingDeduction || 0));
 }
 
 // ============================================================================
-// 3. إعداد Express وفحص وضع الصيانة قبل عرض صفحة index.html
+// 3. إعداد Express وفحص وضع الصيانة
 // ============================================================================
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "12mb" })); // السماح برفع صورة البطاقة الشخصية
 
-// حارس الصيانة: يعمل قبل express.static ليحول الزوار إلى maintenance.html عند تفعيل الصيانة
 app.use((req, res, next) => {
     const endTime = appState.maintenanceEndTime || 0;
-
-    // إذا انتهى وقت الصيانة تلقائياً، يتم تصفيره
     if (endTime > 0 && Date.now() >= endTime) {
         appState.maintenanceEndTime = 0;
-        saveState(appState);
+        saveState();
     }
 
     const isMaintenanceActive = (appState.maintenanceEndTime || 0) > Date.now();
-
-    // السماح بمرور مسارات الـ API وملفات الصيانة وأيقونات التطبيق والرابط السري للمشرف
     if (
         req.path.startsWith("/api/") ||
         req.path === "/dev-panel-lock" ||
@@ -119,19 +131,16 @@ app.use((req, res, next) => {
         return next();
     }
 
-    // إذا كانت الصيانة مفعلة، يتم عرض صفحة الصيانة لأي زائر يطلب الموقع
     if (isMaintenanceActive) {
         return res.sendFile(path.join(__dirname, "maintenance.html"));
     }
-
     next();
 });
 
-// تقديم الملفات الثابتة (index.html وغيرها) بعد التأكد من عدم وجود صيانة نشطة
 app.use(express.static(__dirname));
 
 // ============================================================================
-// 4. تحديث السعر الرسمي للدولار مقابل الجنيه المصري تلقائياً
+// 4. تحديث سعر الصرف الرسمي للبنوك
 // ============================================================================
 async function updateOfficialExchangeRate() {
     try {
@@ -139,7 +148,7 @@ async function updateOfficialExchangeRate() {
         const data = await res.json();
         if (data && data.rates && data.rates.EGP) {
             appState.usdToEgpRate = parseFloat(data.rates.EGP.toFixed(2));
-            saveState(appState);
+            saveState();
         }
     } catch (err) {}
     return appState.usdToEgpRate || 56.26;
@@ -149,39 +158,47 @@ updateOfficialExchangeRate();
 setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 
 // ============================================================================
-// 5. ربط بوت التيليجرام (التسوية + مسح القائمة عن بُعد + لوحة الحالة)
+// 5. ربط بوت التيليجرام بمعالجة الحسابات المتعددة
 // ============================================================================
 const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
-    async (txId, action) => {
-        // أ) مسح القائمة بالكامل عن بُعد من البوت
+    async (targetPhone, action, txId) => {
         if (action === "clear_all") {
-            appState.pendingDeduction = 0;
-            appState.history = [];
-            saveState(appState);
-            return {
-                cleared: true,
-                newBalance: getAvailableBalance().toFixed(2)
-            };
+            for (const phoneKey of Object.keys(appState.usersState)) {
+                appState.usersState[phoneKey].pendingDeduction = 0;
+                appState.usersState[phoneKey].history = [];
+            }
+            saveState();
+            return { cleared: true };
         }
 
-        // ب) جلب ملخص الحالة للوحة تحكم البوت (/menu)
+        if (action === "clear_user") {
+            const uState = ensureUserState(targetPhone);
+            uState.pendingDeduction = 0;
+            uState.history = [];
+            saveState();
+            return { cleared: true };
+        }
+
         if (action === "get_status") {
+            const usersMap = getRegisteredUsersMap();
+            let totalHistory = 0;
+            for (const u of Object.values(appState.usersState)) {
+                totalHistory += (u.history?.length || 0);
+            }
             return {
-                rawBalance: (appState.lastViaBtcBalance || 0).toFixed(2),
-                pendingDeduction: (appState.pendingDeduction || 0).toFixed(2),
-                availableBalance: getAvailableBalance().toFixed(2),
+                usersCount: Object.keys(usersMap).length,
                 exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
-                historyCount: appState.history.length
+                historyCount: totalHistory
             };
         }
 
-        // ج) قبول أو رفض عملية سحب محددة
-        const recordIndex = appState.history.findIndex(item => item.id === txId);
+        const uState = ensureUserState(targetPhone);
+        const recordIndex = uState.history.findIndex(item => item.id === txId);
         if (recordIndex === -1) return null;
 
-        const record = appState.history[recordIndex];
+        const record = uState.history[recordIndex];
         if (record.status !== "pending") return record;
 
         if (action === "approve") {
@@ -189,10 +206,10 @@ const botManager = new TelegramBotManager(
         } else if (action === "reject") {
             record.status = "rejected";
             const amountToRefund = parseFloat(record.gross) || 0;
-            appState.pendingDeduction = Math.max(0, appState.pendingDeduction - amountToRefund);
+            uState.pendingDeduction = Math.max(0, uState.pendingDeduction - amountToRefund);
         }
 
-        saveState(appState);
+        saveState();
         return record;
     }
 );
@@ -200,8 +217,10 @@ const botManager = new TelegramBotManager(
 botManager.startListening();
 
 // ============================================================================
-// 6. قراءة الرصيد الفعلي من العنصر data-v-dbcf2a1c في ViaBTC
+// 6. قراءة رصيد ViaBTC المستقل لكل مشترك (data-v-dbcf2a1c)
 // ============================================================================
+let isScrapingNow = false;
+
 function parseUsdFromTexts(texts) {
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
@@ -211,7 +230,6 @@ function parseUsdFromTexts(texts) {
             if (!isNaN(val)) return val;
         }
     }
-
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
         if (/^[0-9]+\.[0-9]{2,8}$/.test(clean)) {
@@ -219,7 +237,6 @@ function parseUsdFromTexts(texts) {
             if (!isNaN(val)) return val;
         }
     }
-
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
         const numMatch = clean.match(/([0-9]+\.[0-9]+)/);
@@ -228,106 +245,97 @@ function parseUsdFromTexts(texts) {
             if (!isNaN(val)) return val;
         }
     }
-
     return null;
 }
 
-async function scrapeViaBtcBalance() {
-    if (!VIABTC_OBSERVER_URL || isScrapingNow) return;
-    isScrapingNow = true;
+async function scrapeAllUsersViaBtc() {
+    if (isScrapingNow) return;
+    const usersMap = getRegisteredUsersMap();
+    const userEntries = Object.values(usersMap).filter(u => u.viabtcUrl && u.viabtcUrl.startsWith("http"));
+    if (userEntries.length === 0) return;
 
+    isScrapingNow = true;
     let browser = null;
-    const interceptedApis = [];
 
     try {
         const executablePath = await chromium.executablePath();
         browser = await puppeteer.launch({
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath: executablePath,
+            executablePath,
             headless: chromium.headless
         });
 
-        const page = await browser.newPage();
+        for (const user of userEntries) {
+            const page = await browser.newPage();
+            const interceptedApis = [];
 
-        await page.setCookie(
-            { name: "currency", value: "USD", domain: ".viabtc.com" },
-            { name: "legal_currency", value: "USD", domain: ".viabtc.com" }
-        );
+            try {
+                await page.setCookie(
+                    { name: "currency", value: "USD", domain: ".viabtc.com" },
+                    { name: "legal_currency", value: "USD", domain: ".viabtc.com" }
+                );
 
-        page.on("response", async (response) => {
-            const rUrl = response.url();
-            if (rUrl.includes("/res/") && response.status() === 200) {
-                try {
-                    const ct = response.headers()["content-type"] || "";
-                    if (ct.includes("application/json")) {
-                        const json = await response.json();
-                        interceptedApis.push({ url: rUrl, data: json?.data || json });
+                page.on("response", async (response) => {
+                    const rUrl = response.url();
+                    if (rUrl.includes("/res/") && response.status() === 200) {
+                        try {
+                            const ct = response.headers()["content-type"] || "";
+                            if (ct.includes("application/json")) {
+                                const json = await response.json();
+                                interceptedApis.push({ url: rUrl, data: json?.data || json });
+                            }
+                        } catch {}
                     }
+                });
+
+                await page.goto(user.viabtcUrl, { waitUntil: "networkidle2", timeout: 35000 });
+                try {
+                    await page.waitForSelector("[data-v-dbcf2a1c]", { timeout: 10000 });
+                    await new Promise(r => setTimeout(r, 2000));
                 } catch {}
-            }
-        });
 
-        await page.goto(VIABTC_OBSERVER_URL, {
-            waitUntil: "networkidle2",
-            timeout: 35000
-        });
+                const domResult = await page.evaluate(() => {
+                    const nodes = Array.from(document.querySelectorAll("[data-v-dbcf2a1c]"));
+                    const texts = nodes
+                        .map(el => (el.innerText || el.textContent || "").trim())
+                        .filter(t => t.length > 0 && /[0-9]/.test(t));
+                    const mainArea = document.querySelector(".l-observer-main");
+                    return { texts, mainText: mainArea ? mainArea.innerText : "" };
+                });
 
-        try {
-            await page.waitForSelector("[data-v-dbcf2a1c]", { timeout: 12000 });
-            await new Promise(r => setTimeout(r, 2500));
-        } catch {}
-
-        const domResult = await page.evaluate(() => {
-            const nodes = Array.from(document.querySelectorAll("[data-v-dbcf2a1c]"));
-            const texts = nodes
-                .map(el => (el.innerText || el.textContent || "").trim())
-                .filter(t => t.length > 0 && /[0-9]/.test(t));
-
-            const mainArea = document.querySelector(".l-observer-main");
-            const mainText = mainArea ? mainArea.innerText : "";
-
-            return { texts, mainText };
-        });
-
-        let detectedUsd = parseUsdFromTexts(domResult.texts);
-
-        if (detectedUsd === null && domResult.mainText) {
-            detectedUsd = parseUsdFromTexts(domResult.mainText.split("\n"));
-        }
-
-        if (detectedUsd === null && interceptedApis.length > 0) {
-            for (const apiItem of interceptedApis) {
-                const str = JSON.stringify(apiItem.data);
-                const m = str.match(/"(?:total_usd|usd_value|valuation_usd|total_asset_usd|usd|total_profit)"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/i);
-                if (m && m[1]) {
-                    detectedUsd = parseFloat(m[1]);
-                    break;
+                let detectedUsd = parseUsdFromTexts(domResult.texts);
+                if (detectedUsd === null && domResult.mainText) {
+                    detectedUsd = parseUsdFromTexts(domResult.mainText.split("\n"));
                 }
-            }
-        }
+                if (detectedUsd === null && interceptedApis.length > 0) {
+                    for (const apiItem of interceptedApis) {
+                        const str = JSON.stringify(apiItem.data);
+                        const m = str.match(/"(?:total_usd|usd_value|valuation_usd|total_asset_usd|usd|total_profit)"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/i);
+                        if (m && m[1]) {
+                            detectedUsd = parseFloat(m[1]);
+                            break;
+                        }
+                    }
+                }
 
-        lastDebugInfo = {
-            lastCheckTime: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" }),
-            extractedUsd: detectedUsd,
-            matchedElements: domResult.texts.slice(0, 15),
-            interceptedApis: interceptedApis.map(a => a.url),
-            error: null
-        };
-
-        if (detectedUsd !== null && !isNaN(detectedUsd)) {
-            if (appState.lastViaBtcBalance > 0 && detectedUsd < appState.lastViaBtcBalance) {
-                const diff = appState.lastViaBtcBalance - detectedUsd;
-                appState.pendingDeduction = Math.max(0, appState.pendingDeduction - diff);
+                if (detectedUsd !== null && !isNaN(detectedUsd)) {
+                    const uState = ensureUserState(user.phone);
+                    if (uState.lastViaBtcBalance > 0 && detectedUsd < uState.lastViaBtcBalance) {
+                        const diff = uState.lastViaBtcBalance - detectedUsd;
+                        uState.pendingDeduction = Math.max(0, uState.pendingDeduction - diff);
+                    }
+                    uState.lastViaBtcBalance = detectedUsd;
+                    saveState();
+                }
+            } catch (e) {
+                console.error(`خطأ قراءة ViaBTC للمشترك ${user.phone}:`, e.message);
+            } finally {
+                try { await page.close(); } catch {}
             }
-            appState.lastViaBtcBalance = detectedUsd;
-            saveState(appState);
-            console.log(`✅ تم تحديث الرصيد الحقيقي من السيرفر بنجاح: $${detectedUsd}`);
         }
     } catch (err) {
-        lastDebugInfo.error = err.message;
-        lastDebugInfo.lastCheckTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
-        console.error("⚠️ خطأ أثناء قراءة صفحة السيرفر:", err.message);
+        console.error("خطأ في تشغيل متصفح القراءة:", err.message);
     } finally {
         if (browser) {
             try { await browser.close(); } catch {}
@@ -336,10 +344,233 @@ async function scrapeViaBtcBalance() {
     }
 }
 
-scrapeViaBtcBalance();
-setInterval(scrapeViaBtcBalance, 60 * 1000);
+scrapeAllUsersViaBtc();
+setInterval(scrapeAllUsersViaBtc, 60 * 1000);
 
-// دالة مساعدة لجلب موقع الزائر ومزود الإنترنت من الـ IP الخارجي
+// ============================================================================
+// 7. إرسال كود التحقق OTP (7 أرقام) عبر واتساب + إشعار البوت
+// ============================================================================
+async function sendWhatsAppSevenDigitOtp(phone, otpCode, purpose) {
+    let sentViaApi = false;
+    const intlPhone = "2" + phone;
+    const messageBody = `منصة AD$ للتمويل الإعلاني\nكود التحقق الخاص بك المكون من 7 أرقام هو: ${otpCode}`;
+
+    // إذا قام المشرف بإضافة WHATSAPP_API_URL في Environment يرسل تلقائياً
+    if (WHATSAPP_API_URL) {
+        try {
+            const res = await fetch(WHATSAPP_API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    token: WHATSAPP_API_TOKEN,
+                    to: `+${intlPhone}`,
+                    body: messageBody
+                })
+            });
+            if (res.ok) sentViaApi = true;
+        } catch (e) {}
+    }
+
+    // إرسال الكود لبوت الإدارة مع زر توجيه فوري لواتساب المشترك
+    await botManager.sendOtpAlertToAdmin(phone, otpCode, purpose, sentViaApi);
+}
+
+// مسار طلب كود واتساب من 7 أرقام (للتسجيل أو نسيان كلمة المرور)
+app.post("/api/auth/send-otp", async (req, res) => {
+    const { phone, purpose } = req.body || {};
+    const cleanPhone = String(phone || "").trim();
+
+    if (!/^01[0-9]{9}$/.test(cleanPhone)) {
+        return res.status(400).json({
+            success: false,
+            message: "يرجى إدخال رقم هاتف مصري صحيح يبدأ بـ 01 ومكون من 11 رقماً."
+        });
+    }
+
+    const usersMap = getRegisteredUsersMap();
+    if (purpose === "reset" && !usersMap[cleanPhone]) {
+        return res.status(404).json({
+            success: false,
+            message: "رقم الهاتف هذا غير مسجل في المنصة حالياً."
+        });
+    }
+
+    // توليد كود من 7 أرقام بالضبط
+    const otpCode = String(Math.floor(1000000 + Math.random() * 9000000));
+    otpStore.set(cleanPhone, {
+        code: otpCode,
+        purpose: purpose || "register",
+        expires: Date.now() + 10 * 60 * 1000 // صالح لمدة 10 دقائق
+    });
+
+    await sendWhatsAppSevenDigitOtp(cleanPhone, otpCode, purpose || "register");
+
+    res.json({
+        success: true,
+        message: "تم إصدار كود المصادقة المكون من 7 أرقام وإرساله عبر واتساب."
+    });
+});
+
+// مسار تسجيل مشترك جديد مع صورة البطاقة الشخصية وكود الـ 7 أرقام
+app.post("/api/auth/register", async (req, res) => {
+    try {
+        const { fullName, phone, password, otpCode, idCardBase64, deviceInfo } = req.body || {};
+        const cleanPhone = String(phone || "").trim();
+        const cleanOtp = String(otpCode || "").trim();
+
+        if (!fullName || !/^01[0-9]{9}$/.test(cleanPhone) || !password || password.length < 4) {
+            return res.status(400).json({
+                success: false,
+                message: "يرجى استكمال الاسم ورقم الهاتف (11 رقماً) وكلمة المرور بشكل صحيح."
+            });
+        }
+
+        if (!/^\d{7}$/.test(cleanOtp)) {
+            return res.status(400).json({
+                success: false,
+                message: "كود التحقق يجب أن يتكون من 7 أرقام."
+            });
+        }
+
+        const savedOtp = otpStore.get(cleanPhone);
+        if (!savedOtp || savedOtp.code !== cleanOtp || Date.now() > savedOtp.expires) {
+            return res.status(400).json({
+                success: false,
+                message: "كود التحقق (7 أرقام) غير صحيح أو منتهي الصلاحية."
+            });
+        }
+
+        if (!idCardBase64) {
+            return res.status(400).json({
+                success: false,
+                message: "يرجى تصوير أو إرفاق صورة البطاقة الشخصية لإتمام التوثيق."
+            });
+        }
+
+        otpStore.delete(cleanPhone);
+
+        await botManager.sendNewRegistrationWithIdCard({
+            fullName: fullName.trim(),
+            phone: cleanPhone,
+            password: password.trim(),
+            idCardBase64,
+            deviceInfo,
+            date: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })
+        });
+
+        res.json({
+            success: true,
+            message: "تم التحقق من الكود وإرسال بياناتك وصورة البطاقة للإدارة لتفعيل حسابك المستقل!"
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: "حدث خطأ أثناء إرسال طلب التسجيل." });
+    }
+});
+
+// مسار تسجيل الدخول برقم الهاتف وكلمة المرور
+app.post("/api/auth/login", (req, res) => {
+    const { phone, password } = req.body || {};
+    const cleanPhone = String(phone || "").trim();
+    const cleanPass = String(password || "").trim();
+
+    const usersMap = getRegisteredUsersMap();
+    const user = usersMap[cleanPhone];
+
+    if (!user || user.password !== cleanPass) {
+        return res.status(401).json({
+            success: false,
+            message: "رقم الهاتف أو كلمة المرور غير صحيحة، أو لم يتم تفعيل حسابك في Environment بعد."
+        });
+    }
+
+    const token = crypto.randomBytes(24).toString("hex");
+    activeSessions.set(token, cleanPhone);
+
+    res.json({
+        success: true,
+        token,
+        user: {
+            phone: user.phone,
+            name: user.name
+        }
+    });
+});
+
+// مسار استعادة وتغيير كلمة المرور بكود الـ 7 أرقام
+app.post("/api/auth/reset-password", async (req, res) => {
+    const { phone, otpCode, newPassword } = req.body || {};
+    const cleanPhone = String(phone || "").trim();
+    const cleanOtp = String(otpCode || "").trim();
+
+    const usersMap = getRegisteredUsersMap();
+    const user = usersMap[cleanPhone];
+
+    if (!user) {
+        return res.status(404).json({ success: false, message: "رقم الهاتف غير مسجل." });
+    }
+
+    const savedOtp = otpStore.get(cleanPhone);
+    if (!savedOtp || savedOtp.code !== cleanOtp || Date.now() > savedOtp.expires) {
+        return res.status(400).json({
+            success: false,
+            message: "كود التحقق المكون من 7 أرقام غير صحيح أو منتهي الصلاحية."
+        });
+    }
+
+    if (!newPassword || String(newPassword).trim().length < 4) {
+        return res.status(400).json({
+            success: false,
+            message: "كلمة المرور الجديدة يجب أن تكون 4 أحرف أو أرقام على الأقل."
+        });
+    }
+
+    otpStore.delete(cleanPhone);
+    if (!appState.passwordOverrides) appState.passwordOverrides = {};
+    appState.passwordOverrides[cleanPhone] = String(newPassword).trim();
+    saveState();
+
+    user.password = String(newPassword).trim();
+    await botManager.sendPasswordResetNotice(user);
+
+    res.json({
+        success: true,
+        message: "تم تغيير كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول."
+    });
+});
+
+// التحقق من جلسة المشترك
+function authenticateUser(req, res, next) {
+    const authHeader = req.headers["authorization"] || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+    const phone = activeSessions.get(token);
+    const usersMap = getRegisteredUsersMap();
+
+    if (!phone || !usersMap[phone]) {
+        return res.status(401).json({ success: false, unauthorized: true, message: "يرجى تسجيل الدخول أولاً." });
+    }
+
+    req.currentUser = usersMap[phone];
+    next();
+}
+
+// ============================================================================
+// 8. مسارات الرصيد والسحب المستقلة لكل مشترك
+// ============================================================================
+app.get("/api/balance", authenticateUser, (req, res) => {
+    const phone = req.currentUser.phone;
+    const uState = ensureUserState(phone);
+    const availableBalance = getUserAvailableBalance(phone);
+
+    res.json({
+        success: true,
+        accountName: req.currentUser.name,
+        accountPhone: phone,
+        balance: availableBalance.toFixed(2),
+        exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
+        history: uState.history
+    });
+});
+
 async function lookupIpGeoAndIsp(ipAddress) {
     if (!ipAddress || ipAddress === "::1" || ipAddress.startsWith("127.") || ipAddress.startsWith("10.")) {
         return null;
@@ -359,43 +590,19 @@ async function lookupIpGeoAndIsp(ipAddress) {
     return null;
 }
 
-// ============================================================================
-// 7. مسارات الـ API الأساسية (الرصيد، السحب، المسح، وفحص السيرفر)
-// ============================================================================
-app.get("/api/balance", (req, res) => {
-    const availableBalance = getAvailableBalance();
-    res.json({
-        success: true,
-        balance: availableBalance.toFixed(2),
-        exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
-        history: appState.history
-    });
-});
-
-app.get("/api/debug-viabtc", async (req, res) => {
-    if (req.query.refresh === "1") {
-        await scrapeViaBtcBalance();
-    }
-    res.json({
-        currentRawViaBtcBalance: appState.lastViaBtcBalance,
-        pendingDeduction: appState.pendingDeduction,
-        availableDisplayedBalance: getAvailableBalance(),
-        isScrapingNow,
-        debugDetails: lastDebugInfo
-    });
-});
-
-app.post("/api/withdraw", async (req, res) => {
+app.post("/api/withdraw", authenticateUser, async (req, res) => {
     try {
+        const phone = req.currentUser.phone;
+        const uState = ensureUserState(phone);
         const { userName, amount, paymentMethod, destination, deviceInfo } = req.body;
         const requestedAmount = parseFloat(amount);
-        const availableBalance = getAvailableBalance();
+        const availableBalance = getUserAvailableBalance(phone);
         const currentRate = await updateOfficialExchangeRate();
 
         if (isNaN(requestedAmount) || requestedAmount <= 0 || requestedAmount > availableBalance) {
             return res.status(400).json({
                 success: false,
-                message: "المبلغ المطلوب غير صالح أو يتجاوز الرصيد المتاح."
+                message: "المبلغ المطلوب غير صالح أو يتجاوز الرصيد المتاح في حسابك."
             });
         }
 
@@ -418,11 +625,13 @@ app.post("/api/withdraw", async (req, res) => {
         const netEgp = netUsd * currentRate;
         const txId = "TX" + Date.now().toString().slice(-6);
 
-        appState.pendingDeduction += requestedAmount;
+        uState.pendingDeduction += requestedAmount;
 
         const newRecord = {
             id: txId,
-            userName: userName || "غير محدد",
+            userPhone: phone,
+            accountOwnerName: req.currentUser.name,
+            userName: userName || req.currentUser.name,
             method: paymentMethod,
             destination: destination,
             gross: requestedAmount.toFixed(2),
@@ -435,48 +644,49 @@ app.post("/api/withdraw", async (req, res) => {
             date: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })
         };
 
-        appState.history.unshift(newRecord);
-        saveState(appState);
+        uState.history.unshift(newRecord);
+        saveState();
 
-        await botManager.sendWithdrawNotification(newRecord, appState.pendingDeduction);
+        await botManager.sendWithdrawNotification(newRecord, uState.pendingDeduction);
 
         res.json({
             success: true,
             netAmountUsd: netUsd.toFixed(2),
             netAmountEgp: netEgp.toFixed(2),
             exchangeRate: currentRate.toFixed(2),
-            newBalance: getAvailableBalance().toFixed(2),
-            history: appState.history
+            newBalance: getUserAvailableBalance(phone).toFixed(2),
+            history: uState.history
         });
     } catch (err) {
         res.status(500).json({ success: false, message: "حدث خطأ في السيرفر" });
     }
 });
 
-app.post("/api/clear", (req, res) => {
+app.post("/api/clear", authenticateUser, (req, res) => {
     const { password } = req.body || {};
-
     if (!password || String(password).trim() !== ADMIN_PASSWORD) {
         return res.status(403).json({
             success: false,
-            message: "كلمة المرور غير صحيحة! غير مصرح لك بمسح السجل."
+            message: "كلمة مرور الإدارة غير صحيحة!"
         });
     }
 
-    appState.pendingDeduction = 0;
-    appState.history = [];
-    saveState(appState);
+    const phone = req.currentUser.phone;
+    const uState = ensureUserState(phone);
+    uState.pendingDeduction = 0;
+    uState.history = [];
+    saveState();
 
     res.json({
         success: true,
-        newBalance: getAvailableBalance().toFixed(2),
+        newBalance: getUserAvailableBalance(phone).toFixed(2),
         exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
         history: []
     });
 });
 
 // ============================================================================
-// 8. مسارات إدارة وضع الصيانة الطارئة والرابط السري للمشرف (/dev-panel-lock)
+// 9. مسارات الصيانة وتثبيت التطبيق (PWA)
 // ============================================================================
 app.get("/dev-panel-lock", (req, res) => {
     res.sendFile(path.join(__dirname, "maintenance.html"));
@@ -486,7 +696,7 @@ app.get("/api/maintenance/status", (req, res) => {
     const endTime = appState.maintenanceEndTime || 0;
     if (endTime > 0 && Date.now() >= endTime) {
         appState.maintenanceEndTime = 0;
-        saveState(appState);
+        saveState();
     }
     res.json({
         active: (appState.maintenanceEndTime || 0) > Date.now(),
@@ -496,57 +706,27 @@ app.get("/api/maintenance/status", (req, res) => {
 
 app.post("/api/maintenance/set", (req, res) => {
     const { password, minutes } = req.body || {};
-
     if (!password || String(password).trim() !== ADMIN_PASSWORD) {
-        return res.status(403).json({
-            success: false,
-            message: "كلمة مرور المشرف غير صحيحة!"
-        });
+        return res.status(403).json({ success: false, message: "كلمة مرور المشرف غير صحيحة!" });
     }
-
     const mins = parseInt(minutes, 10);
     if (isNaN(mins) || mins < 0) {
-        return res.status(400).json({
-            success: false,
-            message: "عدد الدقائق غير صالح."
-        });
+        return res.status(400).json({ success: false, message: "عدد الدقائق غير صالح." });
     }
-
-    if (mins === 0) {
-        appState.maintenanceEndTime = 0;
-        saveState(appState);
-        return res.json({
-            success: true,
-            message: "تم إيقاف الصيانة وفتح الموقع للجميع فوراً!",
-            endTime: 0
-        });
-    }
-
-    appState.maintenanceEndTime = Date.now() + (mins * 60 * 1000);
-    saveState(appState);
-
+    appState.maintenanceEndTime = mins === 0 ? 0 : Date.now() + (mins * 60 * 1000);
+    saveState();
     res.json({
         success: true,
-        message: `تم تفعيل وضع الصيانة لمدة ${mins} دقيقة بنجاح!`,
+        message: mins === 0 ? "تم فتح الموقع فوراً!" : `تم تفعيل الصيانة لمدة ${mins} دقيقة!`,
         endTime: appState.maintenanceEndTime
     });
 });
 
-// ============================================================================
-// 9. مسارات تحويل الموقع إلى تطبيق قابل للتثبيت (PWA) وأيقونة التطبيق
-// ============================================================================
 const APP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120">
-  <defs>
-    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="100%" stop-color="#10b981"/>
-    </linearGradient>
-  </defs>
-  <rect width="120" height="120" rx="26" fill="#0f172a"/>
-  <rect x="6" y="6" width="108" height="108" rx="22" fill="none" stroke="url(#g)" stroke-width="5"/>
+  <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#10b981"/></linearGradient></defs>
+  <rect width="120" height="120" rx="26" fill="#0f172a"/><rect x="6" y="6" width="108" height="108" rx="22" fill="none" stroke="url(#g)" stroke-width="5"/>
   <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="90" cy="34" r="7" fill="#10b981"/>
-  <text x="60" y="102" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#ffffff" text-anchor="middle">AD$</text>
+  <circle cx="90" cy="34" r="7" fill="#10b981"/><text x="60" y="102" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#ffffff" text-anchor="middle">AD$</text>
 </svg>`;
 
 app.get("/app-icon.svg", (req, res) => {
@@ -558,36 +738,20 @@ app.get("/manifest.json", (req, res) => {
     res.json({
         name: "منصة AD$ لعوائد التمويل الإعلاني",
         short_name: "عوائد AD$",
-        description: "لوحة تحكم عوائد الحملات الإعلانية والمكافآت الترويجية",
         start_url: "/",
         display: "standalone",
         background_color: "#070b14",
         theme_color: "#070b14",
-        orientation: "portrait",
-        icons: [
-            {
-                src: "/app-icon.svg",
-                sizes: "192x192 512x512",
-                type: "image/svg+xml",
-                purpose: "any maskable"
-            }
-        ]
+        icons: [{ src: "/app-icon.svg", sizes: "192x192 512x512", type: "image/svg+xml", purpose: "any maskable" }]
     });
 });
 
 app.get("/sw.js", (req, res) => {
     res.setHeader("Content-Type", "application/javascript");
-    res.send(`
-        self.addEventListener('install', () => self.skipWaiting());
-        self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-        self.addEventListener('fetch', (e) => {
-            if (e.request.method !== 'GET') return;
-            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-        });
-    `);
+    res.send(`self.addEventListener('install', () => self.skipWaiting());self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));`);
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🚀 Multi-User Server running on port ${PORT}`);
 });
