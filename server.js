@@ -1,4 +1,4 @@
-// server.js - نظام تعدد المشتركين (لكل مشترك رابط ViaBTC مستقل + تسجيل بالبطاقة + OTP 7 أرقام)
+// server.js - السيرفر الرئيسي المتكامل (تعدد المشتركين + ViaBTC + تيليجرام + واتساب OTP + الصيانة + PWA)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -7,8 +7,11 @@ const crypto = require("crypto");
 const puppeteer = require("puppeteer-core");
 const chromium = require("@sparticuz/chromium");
 const TelegramBotManager = require("./telegramBot");
+const WhatsAppOtpSender = require("./whatsappClient");
 
-// 1. قراءة ملف .env إن وجد
+// ============================================================================
+// 1. قراءة ملف .env إن وجد بجانب إعدادات Render Environment
+// ============================================================================
 const envFilePath = path.join(__dirname, ".env");
 if (fs.existsSync(envFilePath)) {
     const envLines = fs.readFileSync(envFilePath, "utf8").split(/\r?\n/);
@@ -30,6 +33,7 @@ const DEFAULT_VIABTC_URL = (process.env.VIABTC_OBSERVER_URL || "").trim();
 const TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const TELEGRAM_CHAT_ID = (process.env.TELEGRAM_CHAT_ID || "").trim();
 const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "2026").trim();
+const WHATSAPP_SENDER_PHONE = (process.env.WHATSAPP_SENDER_PHONE || "").trim();
 const WHATSAPP_API_URL = (process.env.WHATSAPP_API_URL || "").trim();
 const WHATSAPP_API_TOKEN = (process.env.WHATSAPP_API_TOKEN || "").trim();
 
@@ -44,8 +48,8 @@ function loadState() {
     return {
         usdToEgpRate: 56.26,
         maintenanceEndTime: 0,
-        usersState: {}, // حالة الرصيد والسجل لكل رقم هاتف مستقل
-        passwordOverrides: {} // حفظ كلمات المرور المحدثة عبر نسيان الباسورد
+        usersState: {},
+        passwordOverrides: {}
     };
 }
 
@@ -105,11 +109,11 @@ function getUserAvailableBalance(phone) {
 }
 
 // ============================================================================
-// 3. إعداد Express وفحص وضع الصيانة
+// 3. إعداد Express وفحص وضع الصيانة قبل عرض الصفحات
 // ============================================================================
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "12mb" })); // السماح برفع صورة البطاقة الشخصية
+app.use(express.json({ limit: "12mb" }));
 
 app.use((req, res, next) => {
     const endTime = appState.maintenanceEndTime || 0;
@@ -158,7 +162,7 @@ updateOfficialExchangeRate();
 setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 
 // ============================================================================
-// 5. ربط بوت التيليجرام بمعالجة الحسابات المتعددة
+// 5. تشغيل بوت التيليجرام وعميل الواتساب المنفرد
 // ============================================================================
 const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
@@ -215,6 +219,12 @@ const botManager = new TelegramBotManager(
 );
 
 botManager.startListening();
+
+const waSender = new WhatsAppOtpSender(
+    WHATSAPP_SENDER_PHONE,
+    async (msg) => await botManager.sendPlainMessage(msg)
+);
+waSender.initialize();
 
 // ============================================================================
 // 6. قراءة رصيد ViaBTC المستقل لكل مشترك (data-v-dbcf2a1c)
@@ -351,31 +361,31 @@ setInterval(scrapeAllUsersViaBtc, 60 * 1000);
 // 7. إرسال كود التحقق OTP (7 أرقام) عبر واتساب + إشعار البوت
 // ============================================================================
 async function sendWhatsAppSevenDigitOtp(phone, otpCode, purpose) {
-    let sentViaApi = false;
-    const intlPhone = "2" + phone;
-    const messageBody = `منصة AD$ للتمويل الإعلاني\nكود التحقق الخاص بك المكون من 7 أرقام هو: ${otpCode}`;
+    // 1. الإرسال التلقائي المباشر عبر whatsappClient.js
+    let sentAutomatically = await waSender.sendOtpMessage(phone, otpCode, purpose);
 
-    // إذا قام المشرف بإضافة WHATSAPP_API_URL في Environment يرسل تلقائياً
-    if (WHATSAPP_API_URL) {
+    // 2. أو عبر رابط API خارجي إن وجد
+    if (!sentAutomatically && WHATSAPP_API_URL) {
         try {
             const res = await fetch(WHATSAPP_API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     token: WHATSAPP_API_TOKEN,
-                    to: `+${intlPhone}`,
-                    body: messageBody
+                    chatId: `2${phone}@c.us`,
+                    to: `+2${phone}`,
+                    message: `منصة AD$ للتمويل الإعلاني\nكود التحقق المكون من 7 أرقام هو: ${otpCode}`,
+                    body: `منصة AD$ للتمويل الإعلاني\nكود التحقق المكون من 7 أرقام هو: ${otpCode}`
                 })
             });
-            if (res.ok) sentViaApi = true;
+            if (res.ok) sentAutomatically = true;
         } catch (e) {}
     }
 
-    // إرسال الكود لبوت الإدارة مع زر توجيه فوري لواتساب المشترك
-    await botManager.sendOtpAlertToAdmin(phone, otpCode, purpose, sentViaApi);
+    // 3. إرسال إشعار لبوت التيليجرام لتأكيد العملية
+    await botManager.sendOtpAlertToAdmin(phone, otpCode, purpose, sentAutomatically);
 }
 
-// مسار طلب كود واتساب من 7 أرقام (للتسجيل أو نسيان كلمة المرور)
 app.post("/api/auth/send-otp", async (req, res) => {
     const { phone, purpose } = req.body || {};
     const cleanPhone = String(phone || "").trim();
@@ -395,12 +405,11 @@ app.post("/api/auth/send-otp", async (req, res) => {
         });
     }
 
-    // توليد كود من 7 أرقام بالضبط
     const otpCode = String(Math.floor(1000000 + Math.random() * 9000000));
     otpStore.set(cleanPhone, {
         code: otpCode,
         purpose: purpose || "register",
-        expires: Date.now() + 10 * 60 * 1000 // صالح لمدة 10 دقائق
+        expires: Date.now() + 10 * 60 * 1000
     });
 
     await sendWhatsAppSevenDigitOtp(cleanPhone, otpCode, purpose || "register");
@@ -411,7 +420,6 @@ app.post("/api/auth/send-otp", async (req, res) => {
     });
 });
 
-// مسار تسجيل مشترك جديد مع صورة البطاقة الشخصية وكود الـ 7 أرقام
 app.post("/api/auth/register", async (req, res) => {
     try {
         const { fullName, phone, password, otpCode, idCardBase64, deviceInfo } = req.body || {};
@@ -467,7 +475,6 @@ app.post("/api/auth/register", async (req, res) => {
     }
 });
 
-// مسار تسجيل الدخول برقم الهاتف وكلمة المرور
 app.post("/api/auth/login", (req, res) => {
     const { phone, password } = req.body || {};
     const cleanPhone = String(phone || "").trim();
@@ -496,7 +503,6 @@ app.post("/api/auth/login", (req, res) => {
     });
 });
 
-// مسار استعادة وتغيير كلمة المرور بكود الـ 7 أرقام
 app.post("/api/auth/reset-password", async (req, res) => {
     const { phone, otpCode, newPassword } = req.body || {};
     const cleanPhone = String(phone || "").trim();
@@ -538,7 +544,6 @@ app.post("/api/auth/reset-password", async (req, res) => {
     });
 });
 
-// التحقق من جلسة المشترك
 function authenticateUser(req, res, next) {
     const authHeader = req.headers["authorization"] || "";
     const token = authHeader.replace("Bearer ", "").trim();
