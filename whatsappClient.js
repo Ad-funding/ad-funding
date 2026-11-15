@@ -1,4 +1,4 @@
-// whatsappClient.js - إرسال كود الـ 7 أرقام عبر واتساب مجاناً وبدون متصفح
+// whatsappClient.js - ملف منفرد لإرسال كود الـ 7 أرقام (OTP) عبر واتساب تلقائياً ومجاناً
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -6,16 +6,18 @@ const {
     fetchLatestBaileysVersion
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
+const fs = require("fs");
 const path = require("path");
 
 class WhatsAppOtpSender {
     constructor(pairingPhone, onNotifyAdmin) {
-        // رقم الهاتف الذي سيرسل منه البوت أكواد التحقق (مثال: 2010xxxxxxxx)
+        // تنسيق رقم الهاتف المرسل ليبدأ بكود مصر 201xxxxxxxxx
         this.pairingPhone = String(pairingPhone || "").replace(/\D/g, "");
         if (this.pairingPhone.startsWith("01")) {
             this.pairingPhone = "2" + this.pairingPhone;
         }
         this.onNotifyAdmin = onNotifyAdmin;
+        this.authFolder = path.join(__dirname, "wa_auth_session");
         this.sock = null;
         this.isConnected = false;
         this.pairingSent = false;
@@ -28,8 +30,7 @@ class WhatsAppOtpSender {
         }
 
         try {
-            const authFolder = path.join(__dirname, "wa_auth_session");
-            const { state, saveCreds } = await useMultiFileAuthState(authFolder);
+            const { state, saveCreds } = await useMultiFileAuthState(this.authFolder);
             const { version } = await fetchLatestBaileysVersion();
 
             this.sock = makeWASocket({
@@ -42,7 +43,7 @@ class WhatsAppOtpSender {
 
             this.sock.ev.on("creds.update", saveCreds);
 
-            // إذا لم يكن الحساب مربوطاً بعد، نطلب كود الربط (8 رموز) ونرسله لتيليجرام المشرف
+            // إذا لم يكن الرقم مربوطاً من قبل، يتم إصدار كود الربط (8 رموز) وإرساله لبوت التيليجرام
             if (!this.sock.authState.creds.registered && !this.pairingSent) {
                 this.pairingSent = true;
                 setTimeout(async () => {
@@ -82,8 +83,15 @@ class WhatsAppOtpSender {
                     this.isConnected = false;
                     const statusCode = lastDisconnect?.error?.output?.statusCode;
                     const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
                     if (shouldReconnect) {
                         setTimeout(() => this.initialize(), 5000);
+                    } else {
+                        // في حال تسجيل الخروج من الهاتف، يتم مسح الجلسة القديمة لإتاحة ربط جديد
+                        try {
+                            fs.rmSync(this.authFolder, { recursive: true, force: true });
+                        } catch (e) {}
+                        this.pairingSent = false;
                     }
                 }
             });
@@ -92,7 +100,7 @@ class WhatsAppOtpSender {
         }
     }
 
-    // دالة إرسال كود الـ 7 أرقام إلى واتساب المشترك
+    // إرسال كود التحقق المكون من 7 أرقام إلى واتساب المشترك
     async sendOtpMessage(targetEgyptianPhone, otpCode, purpose) {
         if (!this.isConnected || !this.sock) return false;
 
