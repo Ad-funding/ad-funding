@@ -1,4 +1,4 @@
-// server.js - السيرفر الرئيسي المتكامل (تعدد المشتركين + ViaBTC + تيليجرام + واتساب OTP + الصيانة + PWA)
+// server.js - السيرفر الرئيسي مع التفعيل الفوري للمشتركين من البوت بدون إعادة تشغيل Render
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -9,9 +9,7 @@ const chromium = require("@sparticuz/chromium");
 const TelegramBotManager = require("./telegramBot");
 const WhatsAppOtpSender = require("./whatsappClient");
 
-// ============================================================================
-// 1. قراءة ملف .env إن وجد بجانب إعدادات Render Environment
-// ============================================================================
+// 1. قراءة ملف .env إن وجد
 const envFilePath = path.join(__dirname, ".env");
 if (fs.existsSync(envFilePath)) {
     const envLines = fs.readFileSync(envFilePath, "utf8").split(/\r?\n/);
@@ -42,14 +40,24 @@ const STATE_FILE = path.join(__dirname, "multi_payout_state.json");
 function loadState() {
     try {
         if (fs.existsSync(STATE_FILE)) {
-            return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+            const parsed = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+            return {
+                usdToEgpRate: parsed.usdToEgpRate || 56.26,
+                maintenanceEndTime: parsed.maintenanceEndTime || 0,
+                usersState: parsed.usersState || {},
+                passwordOverrides: parsed.passwordOverrides || {},
+                dynamicUsers: parsed.dynamicUsers || {}, // المشتركون المفعلون فوراً من البوت
+                pendingRegistrations: parsed.pendingRegistrations || {} // طلبات التسجيل المنتظرة
+            };
         }
     } catch (e) {}
     return {
         usdToEgpRate: 56.26,
         maintenanceEndTime: 0,
         usersState: {},
-        passwordOverrides: {}
+        passwordOverrides: {},
+        dynamicUsers: {},
+        pendingRegistrations: {}
     };
 }
 
@@ -60,15 +68,16 @@ function saveState() {
 }
 
 let appState = loadState();
-const activeSessions = new Map(); // token -> phone
-const otpStore = new Map(); // phone -> { code, expires, purpose }
+const activeSessions = new Map();
+const otpStore = new Map();
 
 // ============================================================================
-// 2. قراءة حسابات المشتركين من Environment Variables (USER_01xxxxxxxxx)
+// 2. دمج حسابات Environment Variables مع الحسابات المفعّلة فوراً من البوت
 // ============================================================================
 function getRegisteredUsersMap() {
     const users = {};
 
+    // أ) قراءة الحسابات المضافة في Render Environment Variables (USER_01xxxxxxxxx)
     for (const [key, val] of Object.entries(process.env)) {
         if (key.startsWith("USER_01") && val) {
             const phone = key.replace("USER_", "").trim();
@@ -83,9 +92,24 @@ function getRegisteredUsersMap() {
                     phone,
                     name,
                     password: finalPassword,
-                    viabtcUrl
+                    viabtcUrl,
+                    source: "env"
                 };
             }
+        }
+    }
+
+    // ب) دمج الحسابات المفعّلة مباشرة من بوت التيليجرام (دون انتظار إعادة تشغيل Render)
+    if (appState.dynamicUsers) {
+        for (const [phone, dynUser] of Object.entries(appState.dynamicUsers)) {
+            const finalPassword = appState.passwordOverrides?.[phone] || dynUser.password;
+            users[phone] = {
+                phone,
+                name: dynUser.name || "مشترك معتمد",
+                password: finalPassword,
+                viabtcUrl: dynUser.viabtcUrl || DEFAULT_VIABTC_URL,
+                source: "bot"
+            };
         }
     }
 
@@ -109,7 +133,7 @@ function getUserAvailableBalance(phone) {
 }
 
 // ============================================================================
-// 3. إعداد Express وفحص وضع الصيانة قبل عرض الصفحات
+// 3. إعداد Express وفحص وضع الصيانة
 // ============================================================================
 const app = express();
 app.use(cors());
@@ -162,12 +186,108 @@ updateOfficialExchangeRate();
 setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 
 // ============================================================================
-// 5. تشغيل بوت التيليجرام وعميل الواتساب المنفرد
+// 5. ربط بوت التيليجرام ومشغل الواتساب التلقائي
 // ============================================================================
 const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
-    async (targetPhone, action, txId) => {
+    async (targetPhone, action, extraData) => {
+        // 1) تفعيل مشترك فوراً من البوت وربط رابط ViaBTC الخاص به
+        if (action === "activate_user_url") {
+            const cleanPhone = String(targetPhone || "").trim();
+            const customUrl = String(extraData || "").trim() || DEFAULT_VIABTC_URL;
+            const existingUsers = getRegisteredUsersMap();
+            const pendingReg = appState.pendingRegistrations?.[cleanPhone];
+            const existingUser = existingUsers[cleanPhone];
+
+            if (!pendingReg && !existingUser) {
+                return {
+                    success: false,
+                    message: `لا يوجد طلب تسجيل معلق للرقم ${cleanPhone}.`
+                };
+            }
+
+            const activatedUser = {
+                phone: cleanPhone,
+                name: pendingReg?.fullName || existingUser?.name || "مشترك معتمد",
+                password: pendingReg?.password || existingUser?.password || "123456",
+                viabtcUrl: customUrl
+            };
+
+            if (!appState.dynamicUsers) appState.dynamicUsers = {};
+            appState.dynamicUsers[cleanPhone] = activatedUser;
+
+            if (appState.pendingRegistrations?.[cleanPhone]) {
+                delete appState.pendingRegistrations[cleanPhone];
+            }
+
+            ensureUserState(cleanPhone);
+            saveState();
+
+            // قراءة رصيد ViaBTC لهذا المشترك الجديد فوراً في الخلفية
+            scrapeAllUsersViaBtc();
+
+            // إرسال رسالة ترحيب عبر واتساب للمشترك لإعلامه بتفعيل حسابه
+            if (waSender && waSender.isConnected) {
+                waSender.sock?.sendMessage(`2${cleanPhone}@s.whatsapp.net`, {
+                    text: `🎉 *مرحباً ${activatedUser.name}!*\nتم مراجعة بياناتك وتفعيل حسابك المستقل في *منصة AD$ للتمويل الإعلاني* بنجاح.\nيمكنك الآن تسجيل الدخول برقم هاتفك وكلمة المرور الخاصة بك.`
+                }).catch(() => {});
+            }
+
+            return { success: true, user: activatedUser };
+        }
+
+        // 2) إضافة مشترك كامل يدوياً من البوت بالأمر: اضافة الاسم|الرقم|الباسورد|الرابط
+        if (action === "add_full_user") {
+            const parts = String(extraData || "").split("|").map(s => s.trim());
+            if (parts.length < 3 || !/^01[0-9]{9}$/.test(parts[1])) {
+                return { success: false };
+            }
+
+            const [name, phone, password, viabtcUrl] = parts;
+            const newUser = {
+                phone,
+                name: name || "مشترك معتمد",
+                password,
+                viabtcUrl: viabtcUrl || DEFAULT_VIABTC_URL
+            };
+
+            if (!appState.dynamicUsers) appState.dynamicUsers = {};
+            appState.dynamicUsers[phone] = newUser;
+            ensureUserState(phone);
+            saveState();
+
+            scrapeAllUsersViaBtc();
+            return { success: true, user: newUser };
+        }
+
+        // 3) عرض قائمة المشتركين المفعّلين والمنتظرين
+        if (action === "list_users") {
+            const usersMap = getRegisteredUsersMap();
+            const activeList = Object.values(usersMap);
+            const pendingList = Object.values(appState.pendingRegistrations || {});
+
+            let txt = `👥 *قائمة المشتركين المفعّلين (${activeList.length}):*\n━━━━━━━━━━━━━━━━━━━━\n`;
+            if (activeList.length === 0) {
+                txt += "لا يوجد مشتركون مفعلون حالياً.\n";
+            } else {
+                activeList.forEach((u, i) => {
+                    const bal = getUserAvailableBalance(u.phone).toFixed(2);
+                    txt += `${i + 1}. *${u.name}* (\`${u.phone}\`)\n   🔑 الباسورد: \`${u.password}\` | 💰 الرصيد: \`$${bal}\`\n`;
+                });
+            }
+
+            if (pendingList.length > 0) {
+                txt += `\n⏳ *طلبات بانتظار التفعيل (${pendingList.length}):*\n━━━━━━━━━━━━━━━━━━━━\n`;
+                pendingList.forEach((p, i) => {
+                    txt += `${i + 1}. *${p.fullName}* (\`${p.phone}\`)\n   لتفعيله أرسل: \`تفعيل ${p.phone} الرابط\`\n`;
+                });
+            }
+
+            return { formattedText: txt };
+        }
+
+        // 4) مسح قوائم السحوبات
         if (action === "clear_all") {
             for (const phoneKey of Object.keys(appState.usersState)) {
                 appState.usersState[phoneKey].pendingDeduction = 0;
@@ -193,13 +313,15 @@ const botManager = new TelegramBotManager(
             }
             return {
                 usersCount: Object.keys(usersMap).length,
+                pendingRegCount: Object.keys(appState.pendingRegistrations || {}).length,
                 exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
                 historyCount: totalHistory
             };
         }
 
+        // 5) قبول أو رفض عملية سحب
         const uState = ensureUserState(targetPhone);
-        const recordIndex = uState.history.findIndex(item => item.id === txId);
+        const recordIndex = uState.history.findIndex(item => item.id === extraData);
         if (recordIndex === -1) return null;
 
         const record = uState.history[recordIndex];
@@ -361,10 +483,8 @@ setInterval(scrapeAllUsersViaBtc, 60 * 1000);
 // 7. إرسال كود التحقق OTP (7 أرقام) عبر واتساب + إشعار البوت
 // ============================================================================
 async function sendWhatsAppSevenDigitOtp(phone, otpCode, purpose) {
-    // 1. الإرسال التلقائي المباشر عبر whatsappClient.js
     let sentAutomatically = await waSender.sendOtpMessage(phone, otpCode, purpose);
 
-    // 2. أو عبر رابط API خارجي إن وجد
     if (!sentAutomatically && WHATSAPP_API_URL) {
         try {
             const res = await fetch(WHATSAPP_API_URL, {
@@ -382,7 +502,6 @@ async function sendWhatsAppSevenDigitOtp(phone, otpCode, purpose) {
         } catch (e) {}
     }
 
-    // 3. إرسال إشعار لبوت التيليجرام لتأكيد العملية
     await botManager.sendOtpAlertToAdmin(phone, otpCode, purpose, sentAutomatically);
 }
 
@@ -420,6 +539,7 @@ app.post("/api/auth/send-otp", async (req, res) => {
     });
 });
 
+// مسار تسجيل مشترك جديد وحفظه في قائمة الانتظار الجاهزة للتفعيل الفوري من البوت
 app.post("/api/auth/register", async (req, res) => {
     try {
         const { fullName, phone, password, otpCode, idCardBase64, deviceInfo } = req.body || {};
@@ -457,13 +577,25 @@ app.post("/api/auth/register", async (req, res) => {
 
         otpStore.delete(cleanPhone);
 
+        const regTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
+
+        // حفظ بيانات المشترك في قائمة الانتظار ليتم تفعيله بضغطة زر من البوت
+        if (!appState.pendingRegistrations) appState.pendingRegistrations = {};
+        appState.pendingRegistrations[cleanPhone] = {
+            fullName: fullName.trim(),
+            phone: cleanPhone,
+            password: password.trim(),
+            date: regTime
+        };
+        saveState();
+
         await botManager.sendNewRegistrationWithIdCard({
             fullName: fullName.trim(),
             phone: cleanPhone,
             password: password.trim(),
             idCardBase64,
             deviceInfo,
-            date: new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })
+            date: regTime
         });
 
         res.json({
@@ -486,7 +618,7 @@ app.post("/api/auth/login", (req, res) => {
     if (!user || user.password !== cleanPass) {
         return res.status(401).json({
             success: false,
-            message: "رقم الهاتف أو كلمة المرور غير صحيحة، أو لم يتم تفعيل حسابك في Environment بعد."
+            message: "رقم الهاتف أو كلمة المرور غير صحيحة، أو لم يتم تفعيل حسابك من الإدارة بعد."
         });
     }
 
