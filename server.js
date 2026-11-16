@@ -1,4 +1,4 @@
-// server.js - السيرفر الرئيسي المتكامل (تعدد المشتركين + التفعيل الفوري + واتساب OTP التلقائي + ViaBTC + الصيانة + PWA)
+// server.js - السيرفر الرئيسي المتكامل (تعدد المشتركين + تفعيل فوري + واتساب OTP + ViaBTC + صيانة)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -9,7 +9,6 @@ const chromium = require("@sparticuz/chromium");
 const TelegramBotManager = require("./telegramBot");
 const WhatsAppOtpSender = require("./whatsappClient");
 
-// 1. قراءة ملف .env إن وجد
 const envFilePath = path.join(__dirname, ".env");
 if (fs.existsSync(envFilePath)) {
     const envLines = fs.readFileSync(envFilePath, "utf8").split(/\r?\n/);
@@ -20,9 +19,7 @@ if (fs.existsSync(envFilePath)) {
         if (eqIdx > 0) {
             const key = trimmed.slice(0, eqIdx).trim();
             const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
-            if (!process.env[key]) {
-                process.env[key] = val;
-            }
+            if (!process.env[key]) process.env[key] = val;
         }
     }
 }
@@ -71,12 +68,8 @@ let appState = loadState();
 const activeSessions = new Map();
 const otpStore = new Map();
 
-// ============================================================================
-// 2. دمج حسابات Environment Variables مع الحسابات المفعّلة فوراً من البوت
-// ============================================================================
 function getRegisteredUsersMap() {
     const users = {};
-
     for (const [key, val] of Object.entries(process.env)) {
         if (key.startsWith("USER_01") && val) {
             const phone = key.replace("USER_", "").trim();
@@ -87,13 +80,7 @@ function getRegisteredUsersMap() {
                 const viabtcUrl = parts[2] || DEFAULT_VIABTC_URL;
                 const finalPassword = appState.passwordOverrides?.[phone] || envPassword;
 
-                users[phone] = {
-                    phone,
-                    name,
-                    password: finalPassword,
-                    viabtcUrl,
-                    source: "env"
-                };
+                users[phone] = { phone, name, password: finalPassword, viabtcUrl, source: "env" };
             }
         }
     }
@@ -110,17 +97,12 @@ function getRegisteredUsersMap() {
             };
         }
     }
-
     return users;
 }
 
 function ensureUserState(phone) {
     if (!appState.usersState[phone]) {
-        appState.usersState[phone] = {
-            pendingDeduction: 0,
-            lastViaBtcBalance: 0,
-            history: []
-        };
+        appState.usersState[phone] = { pendingDeduction: 0, lastViaBtcBalance: 0, history: [] };
     }
     return appState.usersState[phone];
 }
@@ -130,9 +112,6 @@ function getUserAvailableBalance(phone) {
     return Math.max(0, (uState.lastViaBtcBalance || 0) - (uState.pendingDeduction || 0));
 }
 
-// ============================================================================
-// 3. إعداد Express وفحص وضع الصيانة
-// ============================================================================
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "12mb" }));
@@ -157,17 +136,12 @@ app.use((req, res, next) => {
         return next();
     }
 
-    if (isMaintenanceActive) {
-        return res.sendFile(path.join(__dirname, "maintenance.html"));
-    }
+    if (isMaintenanceActive) return res.sendFile(path.join(__dirname, "maintenance.html"));
     next();
 });
 
 app.use(express.static(__dirname));
 
-// ============================================================================
-// 4. تحديث سعر الصرف الرسمي للبنوك
-// ============================================================================
 async function updateOfficialExchangeRate() {
     try {
         const res = await fetch("https://open.er-api.com/v6/latest/USD");
@@ -183,9 +157,6 @@ async function updateOfficialExchangeRate() {
 updateOfficialExchangeRate();
 setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 
-// ============================================================================
-// 5. ربط بوت التيليجرام ومشغل الواتساب التلقائي
-// ============================================================================
 let waSender = null;
 
 const botManager = new TelegramBotManager(
@@ -205,10 +176,7 @@ const botManager = new TelegramBotManager(
             const existingUser = existingUsers[cleanPhone];
 
             if (!pendingReg && !existingUser) {
-                return {
-                    success: false,
-                    message: `لا يوجد طلب تسجيل معلق للرقم ${cleanPhone}.`
-                };
+                return { success: false, message: `لا يوجد طلب تسجيل معلق للرقم ${cleanPhone}.` };
             }
 
             const activatedUser = {
@@ -227,7 +195,6 @@ const botManager = new TelegramBotManager(
 
             ensureUserState(cleanPhone);
             saveState();
-
             scrapeAllUsersViaBtc();
 
             if (waSender) {
@@ -239,29 +206,18 @@ const botManager = new TelegramBotManager(
 
         if (action === "add_full_user") {
             const parts = String(extraData || "").split("|").map(s => s.trim());
-            if (parts.length < 3 || !/^01[0-9]{9}$/.test(parts[1])) {
-                return { success: false };
-            }
+            if (parts.length < 3 || !/^01[0-9]{9}$/.test(parts[1])) return { success: false };
 
             const [name, phone, password, viabtcUrl] = parts;
-            const newUser = {
-                phone,
-                name: name || "مشترك معتمد",
-                password,
-                viabtcUrl: viabtcUrl || DEFAULT_VIABTC_URL
-            };
+            const newUser = { phone, name: name || "مشترك معتمد", password, viabtcUrl: viabtcUrl || DEFAULT_VIABTC_URL };
 
             if (!appState.dynamicUsers) appState.dynamicUsers = {};
             appState.dynamicUsers[phone] = newUser;
             ensureUserState(phone);
             saveState();
-
             scrapeAllUsersViaBtc();
 
-            if (waSender) {
-                await waSender.sendActivationNotice(phone, newUser.name);
-            }
-
+            if (waSender) await waSender.sendActivationNotice(phone, newUser.name);
             return { success: true, user: newUser };
         }
 
@@ -270,23 +226,14 @@ const botManager = new TelegramBotManager(
             const activeList = Object.values(usersMap);
             const pendingList = Object.values(appState.pendingRegistrations || {});
 
-            let txt = `👥 *قائمة المشتركين المفعّلين (${activeList.length}):*\n━━━━━━━━━━━━━━━━━━━━\n`;
-            if (activeList.length === 0) {
-                txt += "لا يوجد مشتركون مفعلون حالياً.\n";
-            } else {
-                activeList.forEach((u, i) => {
-                    const bal = getUserAvailableBalance(u.phone).toFixed(2);
-                    txt += `${i + 1}. *${u.name}* (\`${u.phone}\`)\n   🔑 الباسورد: \`${u.password}\` | 💰 الرصيد: \`$${bal}\`\n`;
-                });
-            }
+            let txt = `👥 *المشتركون المفعّلون (${activeList.length}):*\n━━━━━━━━━━━━━━━━━━━━\n`;
+            if (activeList.length === 0) txt += "لا يوجد مشتركون.\n";
+            else activeList.forEach((u, i) => { txt += `${i + 1}. *${u.name}* (\`${u.phone}\`) | 💰 \`$${getUserAvailableBalance(u.phone).toFixed(2)}\`\n`; });
 
             if (pendingList.length > 0) {
-                txt += `\n⏳ *طلبات بانتظار التفعيل (${pendingList.length}):*\n━━━━━━━━━━━━━━━━━━━━\n`;
-                pendingList.forEach((p, i) => {
-                    txt += `${i + 1}. *${p.fullName}* (\`${p.phone}\`)\n   لتفعيله أرسل: \`تفعيل ${p.phone} الرابط\`\n`;
-                });
+                txt += `\n⏳ *بانتظار التفعيل (${pendingList.length}):*\n━━━━━━━━━━━━━━━━━━━━\n`;
+                pendingList.forEach((p, i) => { txt += `${i + 1}. *${p.fullName}* (\`${p.phone}\`) - تفعيل: \`تفعيل ${p.phone} الرابط\`\n`; });
             }
-
             return { formattedText: txt };
         }
 
@@ -310,9 +257,7 @@ const botManager = new TelegramBotManager(
         if (action === "get_status") {
             const usersMap = getRegisteredUsersMap();
             let totalHistory = 0;
-            for (const u of Object.values(appState.usersState)) {
-                totalHistory += (u.history?.length || 0);
-            }
+            for (const u of Object.values(appState.usersState)) totalHistory += (u.history?.length || 0);
             return {
                 waConnected: Boolean(waSender && waSender.isConnected),
                 usersCount: Object.keys(usersMap).length,
@@ -329,12 +274,10 @@ const botManager = new TelegramBotManager(
         const record = uState.history[recordIndex];
         if (record.status !== "pending") return record;
 
-        if (action === "approve") {
-            record.status = "approved";
-        } else if (action === "reject") {
+        if (action === "approve") record.status = "approved";
+        else if (action === "reject") {
             record.status = "rejected";
-            const amountToRefund = parseFloat(record.gross) || 0;
-            uState.pendingDeduction = Math.max(0, uState.pendingDeduction - amountToRefund);
+            uState.pendingDeduction = Math.max(0, uState.pendingDeduction - (parseFloat(record.gross) || 0));
         }
 
         saveState();
@@ -350,42 +293,23 @@ waSender = new WhatsAppOtpSender(
 );
 waSender.initialize();
 
-// ============================================================================
-// 6. قراءة رصيد ViaBTC المستقل لكل مشترك (data-v-dbcf2a1c)
-// ============================================================================
 let isScrapingNow = false;
 
 function parseUsdFromTexts(texts) {
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
-        const matchWithCurrency = clean.match(/(?:\$|≈|USD)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*(?:USD|\$)/i);
-        if (matchWithCurrency) {
-            const val = parseFloat(matchWithCurrency[1] || matchWithCurrency[2]);
-            if (!isNaN(val)) return val;
-        }
+        const m = clean.match(/(?:\$|≈|USD)\s*([0-9]+(?:\.[0-9]+)?)|([0-9]+(?:\.[0-9]+)?)\s*(?:USD|\$)/i);
+        if (m) { const val = parseFloat(m[1] || m[2]); if (!isNaN(val)) return val; }
     }
     for (const raw of texts) {
         const clean = raw.replace(/,/g, "").trim();
-        if (/^[0-9]+\.[0-9]{2,8}$/.test(clean)) {
-            const val = parseFloat(clean);
-            if (!isNaN(val)) return val;
-        }
-    }
-    for (const raw of texts) {
-        const clean = raw.replace(/,/g, "").trim();
-        const numMatch = clean.match(/([0-9]+\.[0-9]+)/);
-        if (numMatch) {
-            const val = parseFloat(numMatch[1]);
-            if (!isNaN(val)) return val;
-        }
+        if (/^[0-9]+\.[0-9]{2,8}$/.test(clean)) { const val = parseFloat(clean); if (!isNaN(val)) return val; }
     }
     return null;
 }
 
 async function scrapeAllUsersViaBtc() {
-    // عدم تشغيل المتصفح الخفي أثناء عملية ربط الواتساب لضمان سرعة المعالج
-    if (isScrapingNow || (waSender && waSender.pairingCodeRequested && !waSender.isConnected)) return;
-
+    if (isScrapingNow) return;
     const usersMap = getRegisteredUsersMap();
     const userEntries = Object.values(usersMap).filter(u => u.viabtcUrl && u.viabtcUrl.startsWith("http"));
     if (userEntries.length === 0) return;
@@ -395,118 +319,54 @@ async function scrapeAllUsersViaBtc() {
 
     try {
         const executablePath = await chromium.executablePath();
-        browser = await puppeteer.launch({
-            args: chromium.args,
-            defaultViewport: chromium.defaultViewport,
-            executablePath,
-            headless: chromium.headless
-        });
+        browser = await puppeteer.launch({ args: chromium.args, defaultViewport: chromium.defaultViewport, executablePath, headless: chromium.headless });
 
         for (const user of userEntries) {
             const page = await browser.newPage();
-            const interceptedApis = [];
-
             try {
                 await page.setCookie(
                     { name: "currency", value: "USD", domain: ".viabtc.com" },
                     { name: "legal_currency", value: "USD", domain: ".viabtc.com" }
                 );
-
-                page.on("response", async (response) => {
-                    const rUrl = response.url();
-                    if (rUrl.includes("/res/") && response.status() === 200) {
-                        try {
-                            const ct = response.headers()["content-type"] || "";
-                            if (ct.includes("application/json")) {
-                                const json = await response.json();
-                                interceptedApis.push({ url: rUrl, data: json?.data || json });
-                            }
-                        } catch {}
-                    }
-                });
-
                 await page.goto(user.viabtcUrl, { waitUntil: "networkidle2", timeout: 35000 });
-                try {
-                    await page.waitForSelector("[data-v-dbcf2a1c]", { timeout: 10000 });
-                    await new Promise(r => setTimeout(r, 2000));
-                } catch {}
+                try { await page.waitForSelector("[data-v-dbcf2a1c]", { timeout: 10000 }); await new Promise(r => setTimeout(r, 2000)); } catch {}
 
                 const domResult = await page.evaluate(() => {
                     const nodes = Array.from(document.querySelectorAll("[data-v-dbcf2a1c]"));
-                    const texts = nodes
-                        .map(el => (el.innerText || el.textContent || "").trim())
-                        .filter(t => t.length > 0 && /[0-9]/.test(t));
+                    const texts = nodes.map(el => (el.innerText || el.textContent || "").trim()).filter(t => t.length > 0 && /[0-9]/.test(t));
                     const mainArea = document.querySelector(".l-observer-main");
                     return { texts, mainText: mainArea ? mainArea.innerText : "" };
                 });
 
                 let detectedUsd = parseUsdFromTexts(domResult.texts);
-                if (detectedUsd === null && domResult.mainText) {
-                    detectedUsd = parseUsdFromTexts(domResult.mainText.split("\n"));
-                }
-                if (detectedUsd === null && interceptedApis.length > 0) {
-                    for (const apiItem of interceptedApis) {
-                        const str = JSON.stringify(apiItem.data);
-                        const m = str.match(/"(?:total_usd|usd_value|valuation_usd|total_asset_usd|usd|total_profit)"\s*:\s*"?([0-9]+(?:\.[0-9]+)?)"?/i);
-                        if (m && m[1]) {
-                            detectedUsd = parseFloat(m[1]);
-                            break;
-                        }
-                    }
-                }
+                if (detectedUsd === null && domResult.mainText) detectedUsd = parseUsdFromTexts(domResult.mainText.split("\n"));
 
                 if (detectedUsd !== null && !isNaN(detectedUsd)) {
                     const uState = ensureUserState(user.phone);
                     if (uState.lastViaBtcBalance > 0 && detectedUsd < uState.lastViaBtcBalance) {
-                        const diff = uState.lastViaBtcBalance - detectedUsd;
-                        uState.pendingDeduction = Math.max(0, uState.pendingDeduction - diff);
+                        uState.pendingDeduction = Math.max(0, uState.pendingDeduction - (uState.lastViaBtcBalance - detectedUsd));
                     }
                     uState.lastViaBtcBalance = detectedUsd;
                     saveState();
                 }
-            } catch (e) {
-                console.error(`خطأ قراءة ViaBTC للمشترك ${user.phone}:`, e.message);
-            } finally {
-                try { await page.close(); } catch {}
-            }
+            } catch (e) {} finally { try { await page.close(); } catch {} }
         }
-    } catch (err) {
-        console.error("خطأ في تشغيل متصفح القراءة:", err.message);
-    } finally {
-        if (browser) {
-            try { await browser.close(); } catch {}
-        }
-        isScrapingNow = false;
-    }
+    } catch (e) {} finally { if (browser) try { await browser.close(); } catch {} isScrapingNow = false; }
 }
 
-// تأجيل أول قراءة لـ ViaBTC مدة 25 ثانية عند بدء السيرفر لترك المعالج متفرغاً لربط الواتساب
-setTimeout(() => {
-    scrapeAllUsersViaBtc();
-    setInterval(scrapeAllUsersViaBtc, 60 * 1000);
-}, 25000);
+scrapeAllUsersViaBtc();
+setInterval(scrapeAllUsersViaBtc, 60 * 1000);
 
-// ============================================================================
-// 7. إرسال كود التحقق OTP (7 أرقام) تلقائياً إلى واتساب المشترك
-// ============================================================================
 async function sendWhatsAppSevenDigitOtp(phone, otpCode, purpose) {
     let sentAutomatically = false;
-    if (waSender) {
-        sentAutomatically = await waSender.sendOtpMessage(phone, otpCode, purpose);
-    }
+    if (waSender) sentAutomatically = await waSender.sendOtpMessage(phone, otpCode, purpose);
 
     if (!sentAutomatically && WHATSAPP_API_URL) {
         try {
             const res = await fetch(WHATSAPP_API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    token: WHATSAPP_API_TOKEN,
-                    chatId: `2${phone}@c.us`,
-                    to: `+2${phone}`,
-                    message: `منصة AD$ للتمويل الإعلاني\nكود التحقق المكون من 7 أرقام هو: ${otpCode}`,
-                    body: `منصة AD$ للتمويل الإعلاني\nكود التحقق المكون من 7 أرقام هو: ${otpCode}`
-                })
+                body: JSON.stringify({ token: WHATSAPP_API_TOKEN, chatId: `2${phone}@c.us`, to: `+2${phone}`, message: `كود التحقق: ${otpCode}` })
             });
             if (res.ok) sentAutomatically = true;
         } catch (e) {}
@@ -521,33 +381,19 @@ app.post("/api/auth/send-otp", async (req, res) => {
     const cleanPhone = String(phone || "").trim();
 
     if (!/^01[0-9]{9}$/.test(cleanPhone)) {
-        return res.status(400).json({
-            success: false,
-            message: "يرجى إدخال رقم هاتف مصري صحيح يبدأ بـ 01 ومكون من 11 رقماً."
-        });
+        return res.status(400).json({ success: false, message: "رقم الهاتف غير صحيح." });
     }
 
     const usersMap = getRegisteredUsersMap();
     if (purpose === "reset" && !usersMap[cleanPhone]) {
-        return res.status(404).json({
-            success: false,
-            message: "رقم الهاتف هذا غير مسجل في المنصة حالياً."
-        });
+        return res.status(404).json({ success: false, message: "رقم الهاتف غير مسجل." });
     }
 
     const otpCode = String(Math.floor(1000000 + Math.random() * 9000000));
-    otpStore.set(cleanPhone, {
-        code: otpCode,
-        purpose: purpose || "register",
-        expires: Date.now() + 10 * 60 * 1000
-    });
+    otpStore.set(cleanPhone, { code: otpCode, purpose: purpose || "register", expires: Date.now() + 10 * 60 * 1000 });
 
     await sendWhatsAppSevenDigitOtp(cleanPhone, otpCode, purpose || "register");
-
-    res.json({
-        success: true,
-        message: "تم إرسال كود التحقق المكون من 7 أرقام إلى واتساب رقمك تلقائياً!"
-    });
+    res.json({ success: true, message: "تم إرسال كود التحقق (7 أرقام) إلى واتساب رقمك تلقائياً!" });
 });
 
 app.post("/api/auth/register", async (req, res) => {
@@ -557,62 +403,27 @@ app.post("/api/auth/register", async (req, res) => {
         const cleanOtp = String(otpCode || "").trim();
 
         if (!fullName || !/^01[0-9]{9}$/.test(cleanPhone) || !password || password.length < 4) {
-            return res.status(400).json({
-                success: false,
-                message: "يرجى استكمال الاسم ورقم الهاتف (11 رقماً) وكلمة المرور بشكل صحيح."
-            });
-        }
-
-        if (!/^\d{7}$/.test(cleanOtp)) {
-            return res.status(400).json({
-                success: false,
-                message: "كود التحقق يجب أن يتكون من 7 أرقام."
-            });
+            return res.status(400).json({ success: false, message: "بيانات التسجيل غير مكتملة." });
         }
 
         const savedOtp = otpStore.get(cleanPhone);
         if (!savedOtp || savedOtp.code !== cleanOtp || Date.now() > savedOtp.expires) {
-            return res.status(400).json({
-                success: false,
-                message: "كود التحقق (7 أرقام) غير صحيح أو منتهي الصلاحية."
-            });
+            return res.status(400).json({ success: false, message: "كود التحقق غير صحيح أو منتهي." });
         }
 
-        if (!idCardBase64) {
-            return res.status(400).json({
-                success: false,
-                message: "يرجى تصوير أو إرفاق صورة البطاقة الشخصية لإتمام التوثيق."
-            });
-        }
+        if (!idCardBase64) return res.status(400).json({ success: false, message: "صورة البطاقة الشخصية مطلوبة." });
 
         otpStore.delete(cleanPhone);
-
         const regTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
 
         if (!appState.pendingRegistrations) appState.pendingRegistrations = {};
-        appState.pendingRegistrations[cleanPhone] = {
-            fullName: fullName.trim(),
-            phone: cleanPhone,
-            password: password.trim(),
-            date: regTime
-        };
+        appState.pendingRegistrations[cleanPhone] = { fullName: fullName.trim(), phone: cleanPhone, password: password.trim(), date: regTime };
         saveState();
 
-        await botManager.sendNewRegistrationWithIdCard({
-            fullName: fullName.trim(),
-            phone: cleanPhone,
-            password: password.trim(),
-            idCardBase64,
-            deviceInfo,
-            date: regTime
-        });
-
-        res.json({
-            success: true,
-            message: "تم التحقق من الكود وإرسال بياناتك وصورة البطاقة للإدارة لتفعيل حسابك المستقل!"
-        });
+        await botManager.sendNewRegistrationWithIdCard({ fullName: fullName.trim(), phone: cleanPhone, password: password.trim(), idCardBase64, deviceInfo, date: regTime });
+        res.json({ success: true, message: "تم إرسال طلبك وصورة البطاقة للإدارة لتفعيل حسابك الفوري!" });
     } catch (err) {
-        res.status(500).json({ success: false, message: "حدث خطأ أثناء إرسال طلب التسجيل." });
+        res.status(500).json({ success: false, message: "حدث خطأ في السيرفر." });
     }
 });
 
@@ -625,23 +436,12 @@ app.post("/api/auth/login", (req, res) => {
     const user = usersMap[cleanPhone];
 
     if (!user || user.password !== cleanPass) {
-        return res.status(401).json({
-            success: false,
-            message: "رقم الهاتف أو كلمة المرور غير صحيحة، أو لم يتم تفعيل حسابك من الإدارة بعد."
-        });
+        return res.status(401).json({ success: false, message: "رقم الهاتف أو كلمة المرور غير صحيحة، أو لم يتم التفعيل بعد." });
     }
 
     const token = crypto.randomBytes(24).toString("hex");
     activeSessions.set(token, cleanPhone);
-
-    res.json({
-        success: true,
-        token,
-        user: {
-            phone: user.phone,
-            name: user.name
-        }
-    });
+    res.json({ success: true, token, user: { phone: user.phone, name: user.name } });
 });
 
 app.post("/api/auth/reset-password", async (req, res) => {
@@ -651,24 +451,11 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     const usersMap = getRegisteredUsersMap();
     const user = usersMap[cleanPhone];
-
-    if (!user) {
-        return res.status(404).json({ success: false, message: "رقم الهاتف غير مسجل." });
-    }
+    if (!user) return res.status(404).json({ success: false, message: "رقم الهاتف غير مسجل." });
 
     const savedOtp = otpStore.get(cleanPhone);
     if (!savedOtp || savedOtp.code !== cleanOtp || Date.now() > savedOtp.expires) {
-        return res.status(400).json({
-            success: false,
-            message: "كود التحقق المكون من 7 أرقام غير صحيح أو منتهي الصلاحية."
-        });
-    }
-
-    if (!newPassword || String(newPassword).trim().length < 4) {
-        return res.status(400).json({
-            success: false,
-            message: "كلمة المرور الجديدة يجب أن تكون 4 أحرف أو أرقام على الأقل."
-        });
+        return res.status(400).json({ success: false, message: "كود التحقق غير صحيح أو منتهي." });
     }
 
     otpStore.delete(cleanPhone);
@@ -678,60 +465,40 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     user.password = String(newPassword).trim();
     await botManager.sendPasswordResetNotice(user);
-
-    res.json({
-        success: true,
-        message: "تم تغيير كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول."
-    });
+    res.json({ success: true, message: "تم تغيير كلمة المرور بنجاح!" });
 });
 
 function authenticateUser(req, res, next) {
-    const authHeader = req.headers["authorization"] || "";
-    const token = authHeader.replace("Bearer ", "").trim();
+    const token = (req.headers["authorization"] || "").replace("Bearer ", "").trim();
     const phone = activeSessions.get(token);
     const usersMap = getRegisteredUsersMap();
 
     if (!phone || !usersMap[phone]) {
         return res.status(401).json({ success: false, unauthorized: true, message: "يرجى تسجيل الدخول أولاً." });
     }
-
     req.currentUser = usersMap[phone];
     next();
 }
 
-// ============================================================================
-// 8. مسارات الرصيد والسحب المستقلة لكل مشترك
-// ============================================================================
 app.get("/api/balance", authenticateUser, (req, res) => {
     const phone = req.currentUser.phone;
-    const uState = ensureUserState(phone);
-    const availableBalance = getUserAvailableBalance(phone);
-
     res.json({
         success: true,
         accountName: req.currentUser.name,
         accountPhone: phone,
-        balance: availableBalance.toFixed(2),
+        balance: getUserAvailableBalance(phone).toFixed(2),
         exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
-        history: uState.history
+        history: ensureUserState(phone).history
     });
 });
 
 async function lookupIpGeoAndIsp(ipAddress) {
-    if (!ipAddress || ipAddress === "::1" || ipAddress.startsWith("127.") || ipAddress.startsWith("10.")) {
-        return null;
-    }
+    if (!ipAddress || ipAddress === "::1" || ipAddress.startsWith("127.")) return null;
     try {
         const cleanIp = ipAddress.split(",")[0].trim();
         const res = await fetch(`https://ipwho.is/${cleanIp}`);
         const data = await res.json();
-        if (data && data.success) {
-            return {
-                ip: cleanIp,
-                isp: data.connection?.isp || data.connection?.org || "غير محدد",
-                location: `${data.country || ""} - ${data.region || ""} - ${data.city || ""}`.replace(/^ - | - $/g, "")
-            };
-        }
+        if (data && data.success) return { ip: cleanIp, isp: data.connection?.isp || "غير محدد", location: `${data.country || ""} - ${data.city || ""}` };
     } catch (e) {}
     return null;
 }
@@ -746,25 +513,17 @@ app.post("/api/withdraw", authenticateUser, async (req, res) => {
         const currentRate = await updateOfficialExchangeRate();
 
         if (isNaN(requestedAmount) || requestedAmount <= 0 || requestedAmount > availableBalance) {
-            return res.status(400).json({
-                success: false,
-                message: "المبلغ المطلوب غير صالح أو يتجاوز الرصيد المتاح في حسابك."
-            });
+            return res.status(400).json({ success: false, message: "المبلغ المطلوب غير صالح أو يتجاوز رصيدك." });
         }
 
         const forwardedIp = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
-        const clientIp = deviceInfo?.ip || forwardedIp;
-
         let finalDeviceInfo = { ...(deviceInfo || {}) };
-        if (!finalDeviceInfo.isp || finalDeviceInfo.isp === "غير معروف" || !finalDeviceInfo.location) {
-            const serverGeo = await lookupIpGeoAndIsp(clientIp);
-            if (serverGeo) {
-                finalDeviceInfo.ip = finalDeviceInfo.ip || serverGeo.ip;
-                finalDeviceInfo.isp = (finalDeviceInfo.isp && finalDeviceInfo.isp !== "غير معروف") ? finalDeviceInfo.isp : serverGeo.isp;
-                finalDeviceInfo.location = (finalDeviceInfo.location && finalDeviceInfo.location !== "غير معروف") ? finalDeviceInfo.location : serverGeo.location;
-            }
+        const serverGeo = await lookupIpGeoAndIsp(finalDeviceInfo.ip || forwardedIp);
+        if (serverGeo) {
+            finalDeviceInfo.ip = finalDeviceInfo.ip || serverGeo.ip;
+            finalDeviceInfo.isp = finalDeviceInfo.isp || serverGeo.isp;
+            finalDeviceInfo.location = finalDeviceInfo.location || serverGeo.location;
         }
-        finalDeviceInfo.ip = finalDeviceInfo.ip || clientIp || "غير معروف";
 
         const feeUsd = requestedAmount * 0.25;
         const netUsd = requestedAmount - feeUsd;
@@ -772,14 +531,13 @@ app.post("/api/withdraw", authenticateUser, async (req, res) => {
         const txId = "TX" + Date.now().toString().slice(-6);
 
         uState.pendingDeduction += requestedAmount;
-
         const newRecord = {
             id: txId,
             userPhone: phone,
             accountOwnerName: req.currentUser.name,
             userName: userName || req.currentUser.name,
             method: paymentMethod,
-            destination: destination,
+            destination,
             gross: requestedAmount.toFixed(2),
             fee: feeUsd.toFixed(2),
             net: netUsd.toFixed(2),
@@ -792,7 +550,6 @@ app.post("/api/withdraw", authenticateUser, async (req, res) => {
 
         uState.history.unshift(newRecord);
         saveState();
-
         await botManager.sendWithdrawNotification(newRecord, uState.pendingDeduction);
 
         res.json({
@@ -804,100 +561,48 @@ app.post("/api/withdraw", authenticateUser, async (req, res) => {
             history: uState.history
         });
     } catch (err) {
-        res.status(500).json({ success: false, message: "حدث خطأ في السيرفر" });
+        res.status(500).json({ success: false, message: "حدث خطأ في السيرفر." });
     }
 });
 
 app.post("/api/clear", authenticateUser, (req, res) => {
     const { password } = req.body || {};
     if (!password || String(password).trim() !== ADMIN_PASSWORD) {
-        return res.status(403).json({
-            success: false,
-            message: "كلمة مرور الإدارة غير صحيحة!"
-        });
+        return res.status(403).json({ success: false, message: "كلمة مرور الإدارة غير صحيحة!" });
     }
-
     const phone = req.currentUser.phone;
     const uState = ensureUserState(phone);
     uState.pendingDeduction = 0;
     uState.history = [];
     saveState();
-
-    res.json({
-        success: true,
-        newBalance: getUserAvailableBalance(phone).toFixed(2),
-        exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
-        history: []
-    });
+    res.json({ success: true, newBalance: getUserAvailableBalance(phone).toFixed(2), history: [] });
 });
 
-// ============================================================================
-// 9. مسارات الصيانة وتثبيت التطبيق (PWA)
-// ============================================================================
-app.get("/dev-panel-lock", (req, res) => {
-    res.sendFile(path.join(__dirname, "maintenance.html"));
-});
-
+app.get("/dev-panel-lock", (req, res) => res.sendFile(path.join(__dirname, "maintenance.html")));
 app.get("/api/maintenance/status", (req, res) => {
     const endTime = appState.maintenanceEndTime || 0;
-    if (endTime > 0 && Date.now() >= endTime) {
-        appState.maintenanceEndTime = 0;
-        saveState();
-    }
-    res.json({
-        active: (appState.maintenanceEndTime || 0) > Date.now(),
-        endTime: appState.maintenanceEndTime || 0
-    });
+    if (endTime > 0 && Date.now() >= endTime) { appState.maintenanceEndTime = 0; saveState(); }
+    res.json({ active: (appState.maintenanceEndTime || 0) > Date.now(), endTime: appState.maintenanceEndTime || 0 });
 });
-
 app.post("/api/maintenance/set", (req, res) => {
     const { password, minutes } = req.body || {};
-    if (!password || String(password).trim() !== ADMIN_PASSWORD) {
-        return res.status(403).json({ success: false, message: "كلمة مرور المشرف غير صحيحة!" });
-    }
+    if (!password || String(password).trim() !== ADMIN_PASSWORD) return res.status(403).json({ success: false, message: "كلمة المرور غير صحيحة!" });
     const mins = parseInt(minutes, 10);
-    if (isNaN(mins) || mins < 0) {
-        return res.status(400).json({ success: false, message: "عدد الدقائق غير صالح." });
-    }
     appState.maintenanceEndTime = mins === 0 ? 0 : Date.now() + (mins * 60 * 1000);
     saveState();
-    res.json({
-        success: true,
-        message: mins === 0 ? "تم فتح الموقع فوراً!" : `تم تفعيل الصيانة لمدة ${mins} دقيقة!`,
-        endTime: appState.maintenanceEndTime
-    });
+    res.json({ success: true, message: mins === 0 ? "تم فتح الموقع فوراً!" : `تم تفعيل الصيانة لمدة ${mins} دقيقة!`, endTime: appState.maintenanceEndTime });
 });
 
-const APP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120">
-  <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#10b981"/></linearGradient></defs>
-  <rect width="120" height="120" rx="26" fill="#0f172a"/><rect x="6" y="6" width="108" height="108" rx="22" fill="none" stroke="url(#g)" stroke-width="5"/>
-  <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="90" cy="34" r="7" fill="#10b981"/><text x="60" y="102" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#ffffff" text-anchor="middle">AD$</text>
-</svg>`;
+const APP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#10b981"/></linearGradient></defs><rect width="120" height="120" rx="26" fill="#0f172a"/><rect x="6" y="6" width="108" height="108" rx="22" fill="none" stroke="url(#g)" stroke-width="5"/><path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="90" cy="34" r="7" fill="#10b981"/><text x="60" y="102" font-family="Arial" font-size="22" font-weight="bold" fill="#ffffff" text-anchor="middle">AD$</text></svg>`;
 
-app.get("/app-icon.svg", (req, res) => {
-    res.setHeader("Content-Type", "image/svg+xml");
-    res.send(APP_ICON_SVG);
-});
-
+app.get("/app-icon.svg", (req, res) => { res.setHeader("Content-Type", "image/svg+xml"); res.send(APP_ICON_SVG); });
 app.get("/manifest.json", (req, res) => {
-    res.json({
-        name: "منصة AD$ لعوائد التمويل الإعلاني",
-        short_name: "عوائد AD$",
-        start_url: "/",
-        display: "standalone",
-        background_color: "#070b14",
-        theme_color: "#070b14",
-        icons: [{ src: "/app-icon.svg", sizes: "192x192 512x512", type: "image/svg+xml", purpose: "any maskable" }]
-    });
+    res.json({ name: "منصة AD$ للتمويل الإعلاني", short_name: "عوائد AD$", start_url: "/", display: "standalone", background_color: "#070b14", theme_color: "#070b14", icons: [{ src: "/app-icon.svg", sizes: "192x192 512x512", type: "image/svg+xml" }] });
 });
-
 app.get("/sw.js", (req, res) => {
     res.setHeader("Content-Type", "application/javascript");
     res.send(`self.addEventListener('install', () => self.skipWaiting());self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));`);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Multi-User Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Multi-User Server running on port ${PORT}`));
