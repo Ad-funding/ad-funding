@@ -51,7 +51,6 @@ class WhatsAppOtpSender {
 
             this.sock.ev.on("creds.update", saveCreds);
 
-            // إذا لم يكن مربوطاً وتم تحديد رقم هاتف، نطلب كود الربط التلقائي
             if (!this.sock.authState.creds.registered && this.pairingPhone) {
                 setTimeout(async () => {
                     await this.generatePairingCodeNow(this.pairingPhone);
@@ -96,7 +95,6 @@ class WhatsAppOtpSender {
         }
     }
 
-    // طلب كود ربط جديد في أي وقت من داخل بوت التيليجرام
     async requestNewPairingFromBot(phoneInput) {
         const formatted = this.formatEgyptianPhone(phoneInput);
         if (!formatted || formatted.length < 12) {
@@ -104,7 +102,6 @@ class WhatsAppOtpSender {
         }
 
         try {
-            // إغلاق أي جلسة قديمة غير مكتملة ومسحها لإنشاء كود نظيف
             if (this.sock) {
                 try { this.sock.end(undefined); } catch (e) {}
                 this.sock = null;
@@ -149,7 +146,6 @@ class WhatsAppOtpSender {
         }
     }
 
-    // الإرسال الفوري التلقائي لكود الـ 7 أرقام إلى واتساب المشترك
     async sendOtpMessage(subscriberPhone, otpCode, purpose) {
         if (!this.isConnected || !this.sock) {
             return false;
@@ -159,7 +155,6 @@ class WhatsAppOtpSender {
             const intlPhone = this.formatEgyptianPhone(subscriberPhone);
             let targetJid = `${intlPhone}@s.whatsapp.net`;
 
-            // التحقق من المعرف الدقيق للرقم على خوادم واتساب لضمان وصول الرسالة 100%
             try {
                 const [result] = await this.sock.onWhatsApp(intlPhone);
                 if (result && result.exists && result.jid) {
@@ -172,7 +167,7 @@ class WhatsAppOtpSender {
             const text =
 `🌐 *منصة AD$ للتمويل الإعلاني*
 ━━━━━━━━━━━━━━━━━━━━
-🔐 كود التحقق الخاص بك (${purposeTitle}) المكون من 7 أرقام هو:
+🔐 كود التحقق الخاص بك (${purposeTitle}) هو:
 
 *${otpCode}*
 
@@ -187,12 +182,19 @@ class WhatsAppOtpSender {
         }
     }
 
-    // إرسال إشعار ترحيبي تلقائي لواتساب المشترك عند تفعيل حسابه
     async sendActivationNotice(subscriberPhone, subscriberName) {
         if (!this.isConnected || !this.sock) return false;
         try {
             const intlPhone = this.formatEgyptianPhone(subscriberPhone);
-            const targetJid = `${intlPhone}@s.whatsapp.net`;
+            let targetJid = `${intlPhone}@s.whatsapp.net`;
+
+            try {
+                const [result] = await this.sock.onWhatsApp(intlPhone);
+                if (result && result.exists && result.jid) {
+                    targetJid = result.jid;
+                }
+            } catch (e) {}
+
             const text =
 `🎉 *مرحباً بك أ/ ${subscriberName}*
 ━━━━━━━━━━━━━━━━━━━━
