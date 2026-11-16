@@ -1,4 +1,4 @@
-// telegramBot.js - إدارة البوت مع التفعيل الفوري للمشتركين وربط ViaBTC بدون إعادة تشغيل السيرفر
+// telegramBot.js - إدارة البوت بدون أزرار توجيه واتساب يدوية + دعم أمر ربط الواتساب التلقائي
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -8,14 +8,13 @@ class TelegramBotManager {
         this.apiUrl = `https://api.telegram.org/bot${this.token}`;
         this.lastUpdateId = 0;
         this.isPolling = false;
-        // حفظ رقم هاتف المشترك الذي ينتظر إرسال رابط ViaBTC من المشرف
         this.awaitingViaBtcForPhone = null;
     }
 
     startListening() {
         if (!this.token || this.token.includes("ضع_توكن") || this.isPolling) return;
         this.isPolling = true;
-        console.log("✅ بوت التيليجرام متصل (يدعم التفعيل الفوري للمشتركين وربط ViaBTC)...");
+        console.log("✅ بوت التيليجرام متصل (الإرسال التلقائي للواتساب مفعل)...");
         this.registerBotCommands();
         this.pollUpdates();
     }
@@ -27,8 +26,8 @@ class TelegramBotManager {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     commands: [
-                        { command: "menu", description: "📊 لوحة التحكم وإحصائيات الحسابات" },
-                        { command: "users", description: "👥 عرض قائمة المشتركين المفعّلين والمنتظرين" },
+                        { command: "menu", description: "📊 لوحة التحكم وحالة واتساب التلقائي" },
+                        { command: "users", description: "👥 عرض قائمة المشتركين" },
                         { command: "clear", description: "🗑️ مسح جميع قوائم السحوبات" }
                     ]
                 })
@@ -67,14 +66,24 @@ class TelegramBotManager {
 
         const text = message.text.trim();
 
-        // 1. إلغاء وضع انتظار الرابط إذا كتب المشرف "الغاء"
         if (text === "الغاء" || text === "إلغاء" || text === "/cancel") {
             this.awaitingViaBtcForPhone = null;
-            await this.sendPlainMessage("❎ *تم إلغاء عملية إدخال الرابط.*");
+            await this.sendPlainMessage("❎ *تم إلغاء العملية.*");
             return;
         }
 
-        // 2. إذا كان البوت ينتظر منك إرسال رابط ViaBTC لتفعيل مشترك ضغطت على زره
+        // 1. أمر ربط واتساب السيرفر للإرسال التلقائي: ربط 010xxxxxxxx أو /pair 010xxxxxxxx
+        if (text.startsWith("ربط ") || text.startsWith("/pair ")) {
+            const phone = text.replace(/^(\/pair|ربط)\s+/i, "").trim();
+            await this.sendPlainMessage(`⏳ *جاري توليد كود ربط الواتساب التلقائي للرقم* \`${phone}\` *... انتظر 5 ثوانٍ.*`);
+            const res = await this.onDecisionCallback(phone, "pair_whatsapp");
+            if (!res?.success) {
+                await this.sendPlainMessage(`⚠️ ${res?.message || "تعذر طلب كود الربط."}`);
+            }
+            return;
+        }
+
+        // 2. استلام رابط ViaBTC لتفعيل مشترك
         if (this.awaitingViaBtcForPhone && text.startsWith("http")) {
             const targetPhone = this.awaitingViaBtcForPhone;
             this.awaitingViaBtcForPhone = null;
@@ -82,17 +91,13 @@ class TelegramBotManager {
             const result = await this.onDecisionCallback(targetPhone, "activate_user_url", text);
             if (result && result.success) {
                 await this.sendPlainMessage(
-`✅ *تم تفعيل حساب المشترك فوراً بنجاح!*
+`✅ *تم تفعيل حساب المشترك فوراً وإشعاره تلقائياً عبر واتساب!*
 ━━━━━━━━━━━━━━━━━━━━
 👤 *الاسم:* ${result.user.name}
 📱 *رقم الهاتف:* \`${result.user.phone}\`
 🔑 *كلمة المرور:* \`${result.user.password}\`
 🔗 *رابط ViaBTC المربوط:*
-\`${result.user.viabtcUrl}\`
-━━━━━━━━━━━━━━━━━━━━
-📡 *تم بدء قراءة الرصيد الفعلي وإرسال إشعار التفعيل للمشترك عبر واتساب!*
-📋 *نسخة احتياطية لـ Environment Variables:*
-\`USER_${result.user.phone}=${result.user.name}|${result.user.password}|${result.user.viabtcUrl}\``
+\`${result.user.viabtcUrl}\``
                 );
             } else {
                 await this.sendPlainMessage(`⚠️ تعذر التفعيل: ${result?.message || "المشترك غير موجود"}`);
@@ -100,7 +105,7 @@ class TelegramBotManager {
             return;
         }
 
-        // 3. أمر تفعيل مباشر: تفعيل 010xxxxxxxx https://... أو /activate 010xxxxxxxx https://...
+        // 3. أمر التفعيل النصي المباشر
         if (text.startsWith("/activate ") || text.startsWith("تفعيل ")) {
             const parts = text.replace(/^(\/activate|تفعيل)\s+/i, "").trim().split(/\s+/);
             const phone = parts[0];
@@ -114,73 +119,53 @@ class TelegramBotManager {
             const result = await this.onDecisionCallback(phone, "activate_user_url", url);
             if (result && result.success) {
                 await this.sendPlainMessage(
-`✅ *تم تفعيل وتحديث رابط المشترك (${result.user.name}) فوراً!*
-📱 *الهاتف:* \`${result.user.phone}\`
-🔑 *الباسورد:* \`${result.user.password}\`
-📋 *سطر Environment الاحتياطي:*
-\`USER_${result.user.phone}=${result.user.name}|${result.user.password}|${result.user.viabtcUrl}\``
+`✅ *تم تفعيل المشترك (${result.user.name}) وإرسال رسالة التفعيل لواتسابه تلقائياً!*`
                 );
             } else {
-                await this.sendPlainMessage(`⚠️ ${result?.message || "لم يتم العثور على طلب تسجيل لهذا الرقم. يمكنك إضافته بالأمر: اضافة الاسم|الرقم|الباسورد|الرابط"}`);
+                await this.sendPlainMessage(`⚠️ ${result?.message || "لم يتم العثور على طلب تسجيل لهذا الرقم."}`);
             }
             return;
         }
 
-        // 4. أمر إضافة أو تعديل مشترك بالكامل يدوياً: اضافة الاسم|010xxxxxxxx|الباسورد|الرابط
+        // 4. أمر إضافة مشترك يدوياً
         if (text.startsWith("/adduser ") || text.startsWith("اضافة ") || text.startsWith("إضافة ")) {
             const rawPayload = text.replace(/^(\/adduser|اضافة|إضافة)\s+/i, "").trim();
-            const result = await this.onDecisionCallback(" MANUAL", "add_full_user", rawPayload);
+            const result = await this.onDecisionCallback("MANUAL", "add_full_user", rawPayload);
 
             if (result && result.success) {
                 await this.sendPlainMessage(
-`✅ *تمت إضافة وتفعيل المشترك فوراً بدون إعادة تشغيل السيرفر!*
-━━━━━━━━━━━━━━━━━━━━
-👤 *الاسم:* ${result.user.name}
-📱 *رقم الهاتف:* \`${result.user.phone}\`
-🔑 *كلمة المرور:* \`${result.user.password}\`
-🔗 *رابط ViaBTC:*
-\`${result.user.viabtcUrl}\``
+`✅ *تمت إضافة وتفعيل المشترك (${result.user.name} - \`${result.user.phone}\`) فوراً!*`
                 );
             } else {
-                await this.sendPlainMessage(
-`⚠️ *صيغة الإضافة غير مكتملة. استخدم الصيغة التالية:*
-\`اضافة محمد أحمد|01012345678|123456|https://www.viabtc.com/...?\``
-                );
+                await this.sendPlainMessage("⚠️ *استخدم الصيغة:*\n`اضافة الاسم|01012345678|الباسورد|الرابط`");
             }
             return;
         }
 
-        // 5. أمر عرض قائمة جميع المشتركين المفعّلين والمنتظرين
         if (text === "/users" || text === "المشتركين" || text === "الحسابات") {
             const info = await this.onDecisionCallback("ALL", "list_users");
             await this.sendPlainMessage(info?.formattedText || "لا توجد حسابات مسجلة حالياً.");
             return;
         }
 
-        // 6. أمر مسح قوائم السحوبات
         if (text === "/clear" || text === "مسح" || text === "مسح القائمة") {
             await this.onDecisionCallback("ALL", "clear_all");
             await this.sendPlainMessage("✅ *تم مسح قوائم السحوبات وتصفير المبالغ المعلقة لجميع الحسابات!*");
             return;
         }
 
-        // 7. لوحة التحكم الرئيسية
         if (text === "/start" || text === "/menu" || text === "تحكم") {
             const status = await this.onDecisionCallback("ALL", "get_status");
             const panelText =
-`🎛 *لوحة التحكم الفورية - منصة AD$*
+`🎛 *لوحة التحكم - الإرسال التلقائي*
 ━━━━━━━━━━━━━━━━━━━━
+📡 *حالة واتساب السيرفر التلقائي:* ${status?.waConnected ? "🟢 متصل ويرسل تلقائياً" : "🔴 غير مربوط حالياً"}
 👥 *المشتركون المفعّلون:* \`${status?.usersCount || 0}\` مشترك
-⏳ *طلبات تسجيل بانتظار التفعيل:* \`${status?.pendingRegCount || 0}\` طلب
+⏳ *طلبات بانتظار التفعيل:* \`${status?.pendingRegCount || 0}\` طلب
 🏦 *سعر الصرف الرسمي:* \`${status?.exchangeRate || "56.26"} ج.م\`
-📋 *إجمالي عمليات السحب:* \`${status?.historyCount || 0}\` عملية
 ━━━━━━━━━━━━━━━━━━━━
-💡 *أوامر التفعيل السريع بدون إعادة تشغيل Render:*
-• لتفعيل مشترك:
-\`تفعيل 010xxxxxxxx https://www.viabtc.com/...\`
-• لإضافة مشترك جديد مباشرة:
-\`اضافة الاسم|010xxxxxxxx|الباسورد|الرابط\`
-• لعرض جميع المشتركين: أرسل \`/users\``;
+📲 *لربط واتساب السيرفر (لمرة واحدة):*
+أرسل في المحادثة: \`ربط 010xxxxxxxx\``;
 
             await fetch(`${this.apiUrl}/sendMessage`, {
                 method: "POST",
@@ -217,38 +202,25 @@ class TelegramBotManager {
         } catch (e) {}
     }
 
-    // 1. إشعار كود التحقق (7 أرقام)
+    // إشعار إرسال الكود التلقائي بدون أي أزرار توجيه يدوية
     async sendOtpAlertToAdmin(phone, otpCode, purpose, autoSent) {
-        const intlPhone = "2" + phone;
         const purposeText = purpose === "register" ? "تسجيل حساب جديد" : "استعادة كلمة المرور";
-        const waMessage = encodeURIComponent(
-            `مرحباً بك في منصة AD$ للتمويل الإعلاني 🌐\nكود التحقق الخاص بك (${purposeText}) المكون من 7 أرقام هو:\n*${otpCode}*`
-        );
-        const waUrl = `https://wa.me/${intlPhone}?text=${waMessage}`;
 
         const msg =
-`🔐 *كود مصادقة واتساب (7 أرقام - OTP)*
+`🔐 *إشعار مصادقة واتساب التلقائية (OTP)*
 ━━━━━━━━━━━━━━━━━━━━
-📌 *السبب:* ${purposeText}
-📱 *رقم الهاتف:* \`${phone}\`
-🔢 *كود الـ 7 أرقام:* \`${otpCode}\`
-📡 *حالة الإرسال التلقائي:* ${autoSent ? "✅ تم الإرسال تلقائياً عبر واتساب السيرفر" : "⚡ جاهز للإرسال المباشر عبر الزر أدناه"}
+📌 *العملية:* ${purposeText}
+📱 *هاتف المشترك:* \`${phone}\`
+🔢 *الكود المرسل (7 أرقام):* \`${otpCode}\`
+📡 *حالة الإرسال:* ${autoSent ? "✅ تم الإرسال تلقائياً إلى واتساب المشترك بنجاح" : "⚠️ لم يتم الإرسال لأن واتساب السيرفر غير مربوط (أرسل: ربط 010xxxxxxxx)"}
 ━━━━━━━━━━━━━━━━━━━━`;
 
-        const keyboard = {
-            inline_keyboard: [
-                [{ text: "📲 إرسال الكود لواتساب المشترك بضغطة واحدة", url: waUrl }]
-            ]
-        };
-
-        await this.sendPlainMessage(msg, keyboard);
+        await this.sendPlainMessage(msg);
     }
 
-    // 2. إرسال بيانات المشترك الجديد + صورة البطاقة الشخصية + أزرار التفعيل الفوري
+    // إرسال بيانات المشترك الجديد + صورة البطاقة + أزرار التفعيل الفوري
     async sendNewRegistrationWithIdCard(regData) {
         const { fullName, phone, password, idCardBase64, deviceInfo, date } = regData;
-        const envKey = `USER_${phone}`;
-        const envValue = `${fullName}|${password}|ضع_رابط_VIABTC_الخاص_به_هنا`;
 
         const caption =
 `🆕 *طلب تسجيل مشترك جديد + صورة البطاقة*
@@ -256,13 +228,11 @@ class TelegramBotManager {
 👤 *الاسم الكامل:* ${fullName}
 📱 *رقم الهاتف:* \`${phone}\`
 🔑 *كلمة المرور:* \`${password}\`
-📲 *نوع الجهاز:* ${deviceInfo?.deviceModel || "غير معروف"}
-🌐 *الـ IP الخارجي:* \`${deviceInfo?.ip || "غير معروف"}\`
+📲 *الجهاز:* ${deviceInfo?.deviceModel || "غير معروف"}
+🌐 *الـ IP:* \`${deviceInfo?.ip || "غير معروف"}\`
 ⏰ *التوقيت:* ${date}
 ━━━━━━━━━━━━━━━━━━━━
-⚡ *اضغط على الزر أدناه لتفعيله فوراً بدون إعادة تشغيل Render:*
-أو انسخ السطر لـ Environment:
-\`${envKey}=${envValue}\``;
+👇 *اضغط لتفعيل الحساب فوراً في السيرفر:*`;
 
         const inlineKeyboard = {
             inline_keyboard: [
@@ -294,28 +264,16 @@ class TelegramBotManager {
                 await this.sendPlainMessage(caption, inlineKeyboard);
             }
         } catch (err) {
-            console.error("خطأ في إرسال صورة البطاقة:", err.message);
             await this.sendPlainMessage(caption, inlineKeyboard);
         }
     }
 
-    // 3. إشعار تغيير كلمة المرور
     async sendPasswordResetNotice(user) {
-        const envKey = `USER_${user.phone}`;
-        const envValue = `${user.name}|${user.password}|${user.viabtcUrl || "رابط_فيا"}`;
         const text =
-`🔄 *قام مشترك بتغيير كلمة المرور عبر OTP*
-━━━━━━━━━━━━━━━━━━━━
-👤 *المشترك:* ${user.name} (\`${user.phone}\`)
-🔑 *كلمة المرور الجديدة:* \`${user.password}\`
-━━━━━━━━━━━━━━━━━━━━
-📋 *السطر المحدث لـ Environment Variables:*
-\`${envKey}=${envValue}\``;
-
+`🔄 *قام المشترك ${user.name} (\`${user.phone}\`) بتحديث كلمة المرور عبر كود واتساب التلقائي*\n🔑 *كلمة المرور الجديدة:* \`${user.password}\``;
         await this.sendPlainMessage(text);
     }
 
-    // 4. إرسال إشعار طلب السحب
     async sendWithdrawNotification(record, totalPending) {
         if (!this.token || this.token.includes("ضع_توكن")) return;
 
@@ -375,9 +333,7 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
                     reply_markup: inlineKeyboard
                 })
             });
-        } catch (err) {
-            console.error("فشل إرسال رسالة تيليجرام:", err.message);
-        }
+        } catch (err) {}
     }
 
     async handleButtonClick(callbackQuery) {
@@ -391,24 +347,21 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
         const txId = parts[2];
         const message = callbackQuery.message;
 
-        // 1. زر طلب إدخال رابط ViaBTC لتفعيل المشترك فوراً
         if (action === "prompt_activate") {
             this.awaitingViaBtcForPhone = targetPhone;
             await this.answerCallback(callbackQuery.id, "أرسل الآن رابط ViaBTC في المحادثة");
             await this.sendPlainMessage(
-`🔗 *أرسل الآن رابط المراقب (ViaBTC Observer URL) الخاص بالمشترك* \`${targetPhone}\` *في رسالة عادية ليتم تفعيل حسابه فوراً:*
-*(أو أرسل كلمة \`الغاء\` للتراجع)*`
+`🔗 *أرسل الآن رابط المراقب (ViaBTC Observer URL) الخاص بالمشترك* \`${targetPhone}\` *في رسالة عادية ليتم تفعيل حسابه فوراً:*`
             );
             return;
         }
 
-        // 2. زر التفعيل الفوري بالرابط الافتراضي
         if (action === "quick_activate") {
             const result = await this.onDecisionCallback(targetPhone, "activate_user_url", "");
             if (result && result.success) {
                 await this.answerCallback(callbackQuery.id, "✅ تم تفعيل حساب المشترك فوراً!");
                 await this.sendPlainMessage(
-`✅ *تم تفعيل حساب المشترك (${result.user.name} - \`${result.user.phone}\`) بالرابط الافتراضي فوراً!*`
+`✅ *تم تفعيل حساب المشترك (${result.user.name} - \`${result.user.phone}\`) وإشعاره على واتساب تلقائياً!*`
                 );
             } else {
                 await this.answerCallback(callbackQuery.id, `⚠️ ${result?.message || "تعذر التفعيل"}`);
@@ -416,7 +369,6 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
             return;
         }
 
-        // 3. زر عرض قائمة المشتركين
         if (action === "list_users") {
             const info = await this.onDecisionCallback("ALL", "list_users");
             await this.answerCallback(callbackQuery.id, "تم جلب قائمة المشتركين");
@@ -424,7 +376,6 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
             return;
         }
 
-        // 4. أزرار مسح السحوبات
         if (action === "clear_all") {
             await this.onDecisionCallback("ALL", "clear_all");
             await this.answerCallback(callbackQuery.id, "✅ تم مسح جميع قوائم السحوبات بنجاح!");
@@ -437,7 +388,6 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
             return;
         }
 
-        // 5. أزرار قبول أو رفض عملية سحب
         const updatedRecord = await this.onDecisionCallback(targetPhone, action, txId);
 
         if (!updatedRecord) {
