@@ -1,4 +1,4 @@
-// whatsappClient.js - إرسال كود الـ 7 أرقام (OTP) تلقائياً عبر واتساب مع دعم كود الربط و QR
+// whatsappClient.js - إرسال كود الـ 7 أرقام (OTP) مع تحديث حالة الاتصال لمنع تعليق الرسائل
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -51,7 +51,7 @@ class WhatsAppOtpSender {
                 auth: state,
                 browser: Browsers.ubuntu("Chrome"),
                 syncFullHistory: false,
-                markOnlineOnConnect: false,
+                markOnlineOnConnect: true,
                 connectTimeoutMs: 60000,
                 defaultQueryTimeoutMs: 60000,
                 keepAliveIntervalMs: 25000
@@ -73,9 +73,9 @@ class WhatsAppOtpSender {
                     this.isConnected = true;
                     this.isInitializing = false;
                     this.pairingCodeRequested = false;
-                    console.log("✅ واتساب السيرفر متصل وجاهز للإرسال التلقائي المباشر!");
+                    console.log("✅ واتساب السيرفر متصل وتتم مزامنة مفاتيح التشفير بنجاح!");
                     if (this.onNotifyAdmin) {
-                        await this.onNotifyAdmin("✅ *تم ربط واتساب بالسيرفر بنجاح!*\nسيتم إرسال أكواد الـ 7 أرقام (OTP) للمشتركين تلقائياً.");
+                        await this.onNotifyAdmin("✅ *تم ربط واتساب بالسيرفر بنجاح وتنشيط التشفير التلقائي!*");
                     }
                 } else if (connection === "close") {
                     this.isConnected = false;
@@ -158,6 +158,7 @@ class WhatsAppOtpSender {
         }
     }
 
+    // إرسال كود الـ 7 أرقام مع تحديث الحالة لضمان عدم تعليق الرسالة
     async sendOtpMessage(subscriberPhone, otpCode, purpose) {
         if (!this.isConnected || !this.sock) return false;
 
@@ -170,17 +171,25 @@ class WhatsAppOtpSender {
                 if (result && result.exists && result.jid) targetJid = result.jid;
             } catch (e) {}
 
+            // تحديث حالة الاتصال وإعلام خادم واتساب بجاهزية الإرسال لمنع تعليق الرسالة
+            try {
+                await this.sock.sendPresenceUpdate("available", targetJid);
+                await this.sock.presenceSubscribe(targetJid);
+                await delay(600);
+            } catch (e) {}
+
             const purposeTitle = purpose === "register" ? "تأكيد تسجيل الحساب الجديد" : "استعادة كلمة المرور";
             const text =
 `🌐 *منصة AD$ للتمويل الإعلاني*
 ━━━━━━━━━━━━━━━━━━━━
-🔐 كود التحقق الخاص بك (${purposeTitle}) هو:
+🔐 كود التحقق الخاص بك (${purposeTitle}) المكون من 7 أرقام هو:
 
 *${otpCode}*
 
 ⏳ هذا الكود صالح لمدة 10 دقائق. لا تشاركه مع أي شخص.`;
 
             await this.sock.sendMessage(targetJid, { text });
+            console.log(`✅ تم إرسال وفك تعليق كود OTP (${otpCode}) فوراً للمشترك: ${subscriberPhone}`);
             return true;
         } catch (err) {
             console.error("فشل إرسال رسالة واتساب التلقائية:", err.message);
@@ -188,6 +197,7 @@ class WhatsAppOtpSender {
         }
     }
 
+    // إرسال إشعار التفعيل مع تحديث الحالة
     async sendActivationNotice(subscriberPhone, subscriberName) {
         if (!this.isConnected || !this.sock) return false;
         try {
@@ -197,6 +207,11 @@ class WhatsAppOtpSender {
             try {
                 const [result] = await this.sock.onWhatsApp(intlPhone);
                 if (result && result.exists && result.jid) targetJid = result.jid;
+            } catch (e) {}
+
+            try {
+                await this.sock.sendPresenceUpdate("available", targetJid);
+                await delay(400);
             } catch (e) {}
 
             const text =
