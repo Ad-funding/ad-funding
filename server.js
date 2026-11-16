@@ -312,6 +312,7 @@ const botManager = new TelegramBotManager(
                 totalHistory += (u.history?.length || 0);
             }
             return {
+                waConnected: Boolean(waSender && waSender.isConnected),
                 usersCount: Object.keys(usersMap).length,
                 pendingRegCount: Object.keys(appState.pendingRegistrations || {}).length,
                 exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
