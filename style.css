@@ -742,3 +742,42 @@ select {
 .hidden-section {
     display: none;
 }
+
+/* تنبيه عطل وصيانة أجهزة الكمبيوتر في الصفحة الرئيسية للعميل */
+.hw-alert-banner {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(244, 63, 94, 0.18));
+    border: 1px solid rgba(245, 158, 11, 0.55);
+    border-right: 5px solid #f59e0b;
+    border-radius: 14px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.18);
+    animation: alertPulseBorder 2.2s infinite;
+}
+
+.hw-alert-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.hw-alert-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #fbbf24;
+    margin-bottom: 0.25rem;
+}
+
+.hw-alert-text {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.6;
+}
+
+@keyframes alertPulseBorder {
+    0%, 100% { border-color: rgba(245, 158, 11, 0.55); }
+    50% { border-color: rgba(244, 63, 94, 0.85); }
+}
