@@ -1,4 +1,4 @@
-// server.js - الملف الرئيسي المتكامل (تعدد المشتركين + تفعيل فوري + ألبوم KYC + واتساب OTP + ViaBTC + صيانة + PWA)
+// server.js - الملف الرئيسي المتكامل (تعدد المشتركين + تفعيل فوري + ألبوم KYC + واتساب OTP + تنبيهات الحسابات + ViaBTC + صيانة + PWA)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -127,6 +127,7 @@ function ensureUserState(phone) {
         appState.usersState[phone] = {
             pendingDeduction: 0,
             lastViaBtcBalance: 0,
+            hardwareAlert: false,
             history: []
         };
     }
@@ -143,7 +144,7 @@ function getUserAvailableBalance(phone) {
 // ============================================================================
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "25mb" })); // استيعاب ألبوم الصور الثلاث (وجه + ظهر + سيلفي)
+app.use(express.json({ limit: "25mb" }));
 
 app.use((req, res, next) => {
     const endTime = appState.maintenanceEndTime || 0;
@@ -273,7 +274,35 @@ const botManager = new TelegramBotManager(
             return { success: true, user: newUser };
         }
 
-        // 4. جلب مصفوفة المشتركين لعرضها كأزرار اختيار عند المسح
+        // 4. تفعيل أو إزالة تنبيه صيانة أجهزة الكمبيوتر لحساب محدد أو لجميع الحسابات
+        if (action === "set_hw_alert") {
+            const isActive = Boolean(extraPayload);
+            if (targetPhone === "ALL") {
+                const usersMap = getRegisteredUsersMap();
+                for (const phoneKey of Object.keys(usersMap)) {
+                    ensureUserState(phoneKey).hardwareAlert = isActive;
+                }
+                for (const phoneKey of Object.keys(appState.usersState)) {
+                    appState.usersState[phoneKey].hardwareAlert = isActive;
+                }
+                saveState();
+                return { success: true, userName: "جميع الحسابات" };
+            }
+
+            const usersMap = getRegisteredUsersMap();
+            const userObj = usersMap[targetPhone];
+            const uState = ensureUserState(targetPhone);
+            uState.hardwareAlert = isActive;
+            saveState();
+
+            return {
+                success: true,
+                userName: userObj?.name || targetPhone,
+                hardwareAlert: isActive
+            };
+        }
+
+        // 5. جلب مصفوفة المشتركين لعرضها كأزرار اختيار
         if (action === "get_users_array") {
             const usersMap = getRegisteredUsersMap();
             const users = Object.values(usersMap).map(u => {
@@ -282,13 +311,14 @@ const botManager = new TelegramBotManager(
                     phone: u.phone,
                     name: u.name,
                     pending: (uState.pendingDeduction || 0).toFixed(2),
-                    historyCount: (uState.history || []).length
+                    historyCount: (uState.history || []).length,
+                    hasHardwareAlert: Boolean(uState.hardwareAlert)
                 };
             });
             return { users };
         }
 
-        // 5. عرض قائمة المشتركين كنص
+        // 6. عرض قائمة المشتركين كنص
         if (action === "list_users") {
             const usersMap = getRegisteredUsersMap();
             const activeList = Object.values(usersMap);
@@ -299,9 +329,11 @@ const botManager = new TelegramBotManager(
                 txt += "لا يوجد مشتركون مفعلون حالياً.\n";
             } else {
                 activeList.forEach((u, i) => {
+                    const uSt = ensureUserState(u.phone);
                     const avail = getUserAvailableBalance(u.phone).toFixed(2);
-                    const pend = (ensureUserState(u.phone).pendingDeduction || 0).toFixed(2);
-                    txt += `${i + 1}. *${u.name}* (\`${u.phone}\`)\n   💵 المتاح: \`$${avail}\` | ⏳ المعلق: \`$${pend}\`\n`;
+                    const pend = (uSt.pendingDeduction || 0).toFixed(2);
+                    const alertFlag = uSt.hardwareAlert ? " | ⚠️ تنبيه صيانة مفعّل" : "";
+                    txt += `${i + 1}. *${u.name}* (\`${u.phone}\`)\n   💵 المتاح: \`$${avail}\` | ⏳ المعلق: \`$${pend}\`${alertFlag}\n`;
                 });
             }
 
@@ -315,7 +347,7 @@ const botManager = new TelegramBotManager(
             return { formattedText: txt };
         }
 
-        // 6. مسح قوائم جميع المشتركين
+        // 7. مسح قوائم جميع المشتركين
         if (action === "clear_all") {
             for (const phoneKey of Object.keys(appState.usersState)) {
                 appState.usersState[phoneKey].pendingDeduction = 0;
@@ -325,7 +357,7 @@ const botManager = new TelegramBotManager(
             return { cleared: true };
         }
 
-        // 7. مسح قائمة مشترك محدد وتصفير رصيده المعلق
+        // 8. مسح قائمة مشترك محدد وتصفير رصيده المعلق
         if (action === "clear_user") {
             const usersMap = getRegisteredUsersMap();
             const userObj = usersMap[targetPhone];
@@ -349,7 +381,7 @@ const botManager = new TelegramBotManager(
             };
         }
 
-        // 8. ملخص الحالة للوحة التحكم (/menu)
+        // 9. ملخص الحالة للوحة التحكم (/menu)
         if (action === "get_status") {
             const usersMap = getRegisteredUsersMap();
             let totalHistory = 0;
@@ -365,7 +397,7 @@ const botManager = new TelegramBotManager(
             };
         }
 
-        // 9. اعتماد أو رفض عملية سحب محددة لمشترك
+        // 10. اعتماد أو رفض عملية سحب محددة لمشترك
         const uState = ensureUserState(targetPhone);
         const recordIndex = uState.history.findIndex(item => item.id === extraPayload);
         if (recordIndex === -1) return null;
@@ -766,17 +798,20 @@ function authenticateUser(req, res, next) {
 }
 
 // ============================================================================
-// 8. مسارات الرصيد والسحب والفحص
+// 8. مسارات الرصيد والسحب والتنبيه الخاص بكل حساب
 // ============================================================================
 app.get("/api/balance", authenticateUser, (req, res) => {
     const phone = req.currentUser.phone;
+    const uState = ensureUserState(phone);
     res.json({
         success: true,
         accountName: req.currentUser.name,
         accountPhone: phone,
         balance: getUserAvailableBalance(phone).toFixed(2),
         exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
-        history: ensureUserState(phone).history
+        hardwareAlert: Boolean(uState.hardwareAlert),
+        hardwareAlertMessage: "تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة الكمبيوتر في اقرب وقت للحفاظ علي معدل الربح الأعلاني والناشرين في أسرع وقت.",
+        history: uState.history
     });
 });
 
