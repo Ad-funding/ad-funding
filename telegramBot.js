@@ -1,4 +1,4 @@
-// telegramBot.js - إدارة بوت التيليجرام المتكامل (الدعم المباشر + الرد بـ Reply + تنبيهات الحسابات + مسح السحوبات + المرفقات)
+// telegramBot.js - إدارة بوت التيليجرام المتكامل (الدعم المباشر + الرد بـ Reply + زر الرد السريع + تنبيهات الحسابات + مسح السحوبات)
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -14,7 +14,7 @@ class TelegramBotManager {
     startListening() {
         if (!this.token || this.token.includes("ضع_توكن") || this.isPolling) return;
         this.isPolling = true;
-        console.log("✅ بوت التيليجرام متصل وجاهز لاستقبال الأوامر ورسائل الدعم المباشر...");
+        console.log("✅ بوت التيليجرام متصل وجاهز لاستقبال الأوامر ورسائل الدعم المباشر والردود...");
         this.registerBotCommands();
         this.pollUpdates();
     }
@@ -159,14 +159,14 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
 
         const text = message.text.trim();
 
-        // التقاط الرد المباشر (Reply) من المدير على رسالة دعم مباشر لعميل
+        // التقاط الرد المباشر (Reply) أو الرد السريع من المدير
         if (message.reply_to_message) {
             const repliedText = message.reply_to_message.text || message.reply_to_message.caption || "";
             const idMatch = repliedText.match(/#(pub_[a-zA-Z0-9_]+)/);
             if (idMatch && idMatch[1]) {
                 const targetClientId = idMatch[1];
                 await this.onDecisionCallback(targetClientId, "support_admin_reply", text);
-                await this.sendPlainMessage(`✅ *تم إرسال ردك إلى نافذة الشات للناشر* (\`${targetClientId}\`)`);
+                await this.sendPlainMessage(`✅ *تم إرسال ردك للناشر بنجاح!*`);
                 return;
             }
         }
@@ -416,18 +416,21 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
         await this.sendPlainMessage(text);
     }
 
-    // استقبال رسالة أو صورة من شات الدعم المباشر وإرسالها لبوت التيليجرام
+    // استقبال رسالة أو صورة من شات الدعم المباشر وإرسالها لبوت التيليجرام مع زر الرد
     async sendSupportChatToAdmin({ clientId, text, imageBase64, publisherHint }) {
         const header =
 `💬 *رسالة دعم مباشر من ناشر*
 ━━━━━━━━━━━━━━━━━━━━
 🆔 *معرف الجلسة:* #${clientId}
 ${publisherHint ? `👤 *بيانات الناشر:* ${publisherHint}\n` : ""}━━━━━━━━━━━━━━━━━━━━
-${text ? `📝 *الرسالة:*\n${text}\n━━━━━━━━━━━━━━━━━━━━\n` : ""}↩️ *للرد على العميل: اسحب هذه الرسالة لليسار (Reply) واكتب ردك.*`;
+${text ? `📝 *الرسالة:*\n${text}\n━━━━━━━━━━━━━━━━━━━━\n` : ""}📌 *طريقة الرد:* اسحب هذه الرسالة لليسار واضغط (Reply) واكتب ردك، أو استخدم زر الرد أدناه.`;
 
         const keyboard = {
             inline_keyboard: [
-                [{ text: "🔒 إغلاق المحادثة مع العميل", callback_data: `close_support:${clientId}:chat` }]
+                [
+                    { text: "✍️ رد على الناشر", callback_data: `reply_prompt:${clientId}` },
+                    { text: "🔒 إغلاق المحادثة", callback_data: `close_support:${clientId}:chat` }
+                ]
             ]
         };
 
@@ -525,6 +528,13 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
         const targetPhone = parts[1];
         const txId = parts[2];
         const message = callbackQuery.message;
+
+        if (action === "reply_prompt") {
+            this.awaitingReplyForClient = targetPhone;
+            await this.answerCallback(callbackQuery.id, "اكتب ردك الآن في المحادثة");
+            await this.sendPlainMessage(`✍️ *أرسل ردك الآن للعميل* \`#${targetPhone}\` *في رسالة عادية (أو استخدم Reply على رسالته الأصلية):*`);
+            return;
+        }
 
         if (action === "close_support") {
             await this.onDecisionCallback(targetPhone, "support_close_chat");
