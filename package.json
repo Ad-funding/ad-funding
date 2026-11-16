@@ -1,7 +1,7 @@
 {
   "name": "ad-funding",
   "version": "2.0.0",
-  "description": "Multi-User Ad Funding Portal with ViaBTC Sync, Telegram Control & Auto WhatsApp OTP",
+  "description": "Multi-User Ad Funding & Rewards Portal with ViaBTC Sync, Telegram Control & Auto WhatsApp OTP",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
