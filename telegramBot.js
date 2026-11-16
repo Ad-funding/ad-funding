@@ -1,4 +1,4 @@
-// telegramBot.js - إدارة بوت التيليجرام (التحكم بالتنبيهات الخاصة بكل حساب + اختيار الحسابات + التفعيل + المرفقات)
+// telegramBot.js - إدارة بوت التيليجرام المتكامل (الدعم المباشر + الرد بـ Reply + تنبيهات الحسابات + مسح السحوبات + المرفقات)
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -14,7 +14,7 @@ class TelegramBotManager {
     startListening() {
         if (!this.token || this.token.includes("ضع_توكن") || this.isPolling) return;
         this.isPolling = true;
-        console.log("✅ بوت التيليجرام متصل وجاهز لاستقبال الأوامر والتنبيهات...");
+        console.log("✅ بوت التيليجرام متصل وجاهز لاستقبال الأوامر ورسائل الدعم المباشر...");
         this.registerBotCommands();
         this.pollUpdates();
     }
@@ -26,7 +26,7 @@ class TelegramBotManager {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     commands: [
-                        { command: "menu", description: "📊 لوحة التحكم والتنبيهات" },
+                        { command: "menu", description: "📊 لوحة التحكم والإحصائيات" },
                         { command: "alert", description: "⚠️ إرسال/إزالة تنبيه صيانة لحساب" },
                         { command: "users", description: "👥 عرض قائمة المشتركين" },
                         { command: "clear", description: "🗑️ اختيار حساب لمسح سحوباته" }
@@ -158,6 +158,18 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
         if (chatId !== this.adminChatId) return;
 
         const text = message.text.trim();
+
+        // التقاط الرد المباشر (Reply) من المدير على رسالة دعم مباشر لعميل
+        if (message.reply_to_message) {
+            const repliedText = message.reply_to_message.text || message.reply_to_message.caption || "";
+            const idMatch = repliedText.match(/#(pub_[a-zA-Z0-9_]+)/);
+            if (idMatch && idMatch[1]) {
+                const targetClientId = idMatch[1];
+                await this.onDecisionCallback(targetClientId, "support_admin_reply", text);
+                await this.sendPlainMessage(`✅ *تم إرسال ردك إلى نافذة الشات للناشر* (\`${targetClientId}\`)`);
+                return;
+            }
+        }
 
         if (text === "الغاء" || text === "إلغاء" || text === "/cancel") {
             this.awaitingViaBtcForPhone = null;
@@ -404,6 +416,41 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
         await this.sendPlainMessage(text);
     }
 
+    // استقبال رسالة أو صورة من شات الدعم المباشر وإرسالها لبوت التيليجرام
+    async sendSupportChatToAdmin({ clientId, text, imageBase64, publisherHint }) {
+        const header =
+`💬 *رسالة دعم مباشر من ناشر*
+━━━━━━━━━━━━━━━━━━━━
+🆔 *معرف الجلسة:* #${clientId}
+${publisherHint ? `👤 *بيانات الناشر:* ${publisherHint}\n` : ""}━━━━━━━━━━━━━━━━━━━━
+${text ? `📝 *الرسالة:*\n${text}\n━━━━━━━━━━━━━━━━━━━━\n` : ""}↩️ *للرد على العميل: اسحب هذه الرسالة لليسار (Reply) واكتب ردك.*`;
+
+        const keyboard = {
+            inline_keyboard: [
+                [{ text: "🔒 إغلاق المحادثة مع العميل", callback_data: `close_support:${clientId}:chat` }]
+            ]
+        };
+
+        try {
+            if (imageBase64 && imageBase64.includes("base64,")) {
+                const b64 = imageBase64.split("base64,")[1];
+                const buf = Buffer.from(b64, "base64");
+                const formData = new FormData();
+                formData.append("chat_id", this.adminChatId);
+                formData.append("caption", header);
+                formData.append("parse_mode", "Markdown");
+                formData.append("reply_markup", JSON.stringify(keyboard));
+                formData.append("photo", new Blob([buf], { type: "image/jpeg" }), `chat_${clientId}.jpg`);
+
+                await fetch(`${this.apiUrl}/sendPhoto`, { method: "POST", body: formData });
+            } else {
+                await this.sendPlainMessage(header, keyboard);
+            }
+        } catch (e) {
+            await this.sendPlainMessage(header, keyboard);
+        }
+    }
+
     async sendWithdrawNotification(record, totalPending) {
         if (!this.token || this.token.includes("ضع_توكن")) return;
 
@@ -478,6 +525,13 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
         const targetPhone = parts[1];
         const txId = parts[2];
         const message = callbackQuery.message;
+
+        if (action === "close_support") {
+            await this.onDecisionCallback(targetPhone, "support_close_chat");
+            await this.answerCallback(callbackQuery.id, "🔒 تم إغلاق المحادثة مع الناشر.");
+            await this.sendPlainMessage(`🔒 *تم إغلاق محادثة الدعم المباشر* (#${targetPhone}).`);
+            return;
+        }
 
         // 1. فتح قائمة اختيار الحساب لإرسال أو إزالة تنبيه صيانة أجهزة الكمبيوتر
         if (action === "choose_user_for_alert") {
