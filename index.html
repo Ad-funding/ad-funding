@@ -148,7 +148,7 @@
                 <label>كود مصادقة واتساب (OTP)</label>
                 <div class="otp-row">
                     <input type="text" id="resetOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)" required>
-                    <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('reset')">📲 OTP إرسال كود </button>
+                    <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('reset')">📲 OTP إرسال كود</button>
                 </div>
             </div>
             <div class="form-group">
@@ -171,6 +171,17 @@
                 <span class="user-phone-tag" dir="ltr" id="loggedUserPhone"></span>
             </div>
             <button type="button" class="btn-logout" onclick="logoutUser()">تسجيل الخروج</button>
+        </div>
+
+        <!-- تنبيه صيانة أجهزة الكمبيوتر الخاص بحساب العميل (يتحكم به المشرف من تيليجرام) -->
+        <div id="hardwareAlertBanner" class="hw-alert-banner hidden-section">
+            <div class="hw-alert-icon">⚠️</div>
+            <div class="hw-alert-content">
+                <div class="hw-alert-title">تنبيه هام لإدارة التشغيل والناشرين</div>
+                <div class="hw-alert-text" id="hardwareAlertText">
+                    تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة الكمبيوتر في اقرب وقت للحفاظ علي معدل الربح الأعلاني والناشرين في أسرع وقت.
+                </div>
+            </div>
         </div>
 
         <div class="metrics-grid">
@@ -605,7 +616,7 @@
             showAuthMessage("حدث خطأ أثناء إرسال طلب التسجيل والمرفقات.", false);
         } finally {
             btn.disabled = false;
-            btn.textContent = "إرسال طلب التسجيل";
+            btn.textContent = "إرسال طلب التسجيل والمرفقات الثلاثة";
         }
     });
 
@@ -721,6 +732,18 @@
                 if (!document.getElementById("userName").value) {
                     document.getElementById("userName").value = data.accountName;
                 }
+
+                // إظهار أو إخفاء تنبيه صيانة أجهزة الكمبيوتر المرسل من تيليجرام
+                const hwBanner = document.getElementById("hardwareAlertBanner");
+                if (data.hardwareAlert) {
+                    if (data.hardwareAlertMessage) {
+                        document.getElementById("hardwareAlertText").textContent = data.hardwareAlertMessage;
+                    }
+                    hwBanner.style.display = "flex";
+                } else {
+                    hwBanner.style.display = "none";
+                }
+
                 officialBankRate = parseFloat(data.exchangeRate) || 56.26;
                 currentAvailableBalance = parseFloat(data.balance) || 0;
 
