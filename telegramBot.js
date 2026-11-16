@@ -1,4 +1,4 @@
-// telegramBot.js - إدارة البوت بدون أزرار توجيه واتساب يدوية + دعم أمر ربط الواتساب التلقائي
+// telegramBot.js - إدارة البوت (التسوية + التفعيل الفوري للمشتركين + ربط الواتساب التلقائي + مسح السجل)
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -14,7 +14,7 @@ class TelegramBotManager {
     startListening() {
         if (!this.token || this.token.includes("ضع_توكن") || this.isPolling) return;
         this.isPolling = true;
-        console.log("✅ بوت التيليجرام متصل (الإرسال التلقائي للواتساب مفعل)...");
+        console.log("✅ بوت التيليجرام متصل ويستمع للأوامر...");
         this.registerBotCommands();
         this.pollUpdates();
     }
@@ -72,10 +72,10 @@ class TelegramBotManager {
             return;
         }
 
-        // 1. أمر ربط واتساب السيرفر للإرسال التلقائي: ربط 010xxxxxxxx أو /pair 010xxxxxxxx
+        // 1. أمر ربط واتساب السيرفر للإرسال التلقائي: ربط 010xxxxxxxx
         if (text.startsWith("ربط ") || text.startsWith("/pair ")) {
             const phone = text.replace(/^(\/pair|ربط)\s+/i, "").trim();
-            await this.sendPlainMessage(`⏳ *جاري توليد كود ربط الواتساب التلقائي للرقم* \`${phone}\` *... انتظر 5 ثوانٍ.*`);
+            await this.sendPlainMessage(`⏳ *جاري تهيئة جلسة واتساب جديدة وتوليد كود الربط للرقم* \`${phone}\` *... انتظر ثوانٍ.*`);
             const res = await this.onDecisionCallback(phone, "pair_whatsapp");
             if (!res?.success) {
                 await this.sendPlainMessage(`⚠️ ${res?.message || "تعذر طلب كود الربط."}`);
@@ -97,7 +97,10 @@ class TelegramBotManager {
 📱 *رقم الهاتف:* \`${result.user.phone}\`
 🔑 *كلمة المرور:* \`${result.user.password}\`
 🔗 *رابط ViaBTC المربوط:*
-\`${result.user.viabtcUrl}\``
+\`${result.user.viabtcUrl}\`
+━━━━━━━━━━━━━━━━━━━━
+📋 *نسخة احتياطية لـ Environment Variables:*
+\`USER_${result.user.phone}=${result.user.name}|${result.user.password}|${result.user.viabtcUrl}\``
                 );
             } else {
                 await this.sendPlainMessage(`⚠️ تعذر التفعيل: ${result?.message || "المشترك غير موجود"}`);
@@ -105,7 +108,7 @@ class TelegramBotManager {
             return;
         }
 
-        // 3. أمر التفعيل النصي المباشر
+        // 3. أمر التفعيل النصي المباشر: تفعيل 010xxxxxxxx https://...
         if (text.startsWith("/activate ") || text.startsWith("تفعيل ")) {
             const parts = text.replace(/^(\/activate|تفعيل)\s+/i, "").trim().split(/\s+/);
             const phone = parts[0];
@@ -119,7 +122,9 @@ class TelegramBotManager {
             const result = await this.onDecisionCallback(phone, "activate_user_url", url);
             if (result && result.success) {
                 await this.sendPlainMessage(
-`✅ *تم تفعيل المشترك (${result.user.name}) وإرسال رسالة التفعيل لواتسابه تلقائياً!*`
+`✅ *تم تفعيل المشترك (${result.user.name}) فوراً!*
+📱 *الهاتف:* \`${result.user.phone}\`
+🔑 *الباسورد:* \`${result.user.password}\``
                 );
             } else {
                 await this.sendPlainMessage(`⚠️ ${result?.message || "لم يتم العثور على طلب تسجيل لهذا الرقم."}`);
@@ -127,7 +132,7 @@ class TelegramBotManager {
             return;
         }
 
-        // 4. أمر إضافة مشترك يدوياً
+        // 4. أمر إضافة مشترك يدوياً: اضافة الاسم|010xxxxxxxx|الباسورد|الرابط
         if (text.startsWith("/adduser ") || text.startsWith("اضافة ") || text.startsWith("إضافة ")) {
             const rawPayload = text.replace(/^(\/adduser|اضافة|إضافة)\s+/i, "").trim();
             const result = await this.onDecisionCallback("MANUAL", "add_full_user", rawPayload);
@@ -163,9 +168,11 @@ class TelegramBotManager {
 👥 *المشتركون المفعّلون:* \`${status?.usersCount || 0}\` مشترك
 ⏳ *طلبات بانتظار التفعيل:* \`${status?.pendingRegCount || 0}\` طلب
 🏦 *سعر الصرف الرسمي:* \`${status?.exchangeRate || "56.26"} ج.م\`
+📋 *إجمالي عمليات السحب:* \`${status?.historyCount || 0}\` عملية
 ━━━━━━━━━━━━━━━━━━━━
-📲 *لربط واتساب السيرفر (لمرة واحدة):*
-أرسل في المحادثة: \`ربط 010xxxxxxxx\``;
+📲 *لربط واتساب السيرفر:* أرسل \`ربط 010xxxxxxxx\`
+⚡ *لتفعيل مشترك:* أرسل \`تفعيل 010xxxxxxxx الرابط\`
+➕ *لإضافة مشترك:* أرسل \`اضافة الاسم|الرقم|الباسورد|الرابط\``;
 
             await fetch(`${this.apiUrl}/sendMessage`, {
                 method: "POST",
@@ -202,7 +209,6 @@ class TelegramBotManager {
         } catch (e) {}
     }
 
-    // إشعار إرسال الكود التلقائي بدون أي أزرار توجيه يدوية
     async sendOtpAlertToAdmin(phone, otpCode, purpose, autoSent) {
         const purposeText = purpose === "register" ? "تسجيل حساب جديد" : "استعادة كلمة المرور";
 
@@ -218,7 +224,6 @@ class TelegramBotManager {
         await this.sendPlainMessage(msg);
     }
 
-    // إرسال بيانات المشترك الجديد + صورة البطاقة + أزرار التفعيل الفوري
     async sendNewRegistrationWithIdCard(regData) {
         const { fullName, phone, password, idCardBase64, deviceInfo, date } = regData;
 
@@ -297,13 +302,15 @@ class TelegramBotManager {
 📋 *اضغط على الرقم لنسخه فوراً:*
 \`${cleanCopyableNumber}\`
 ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:* \`${rawDestination}\`\n` : ""}━━━━━━━━━━━━━━━━━━━━
-📱 *بيانات الجهاز والشبكة:*
-🔖 *معرف الجهاز:* \`${dev.deviceId || "غير متاح"}\`
-📲 *الجهاز:* ${dev.deviceModel || "غير معروف"}
-⚙️ *المعالج:* ${dev.cpu || "غير معروف"} | 🧠 *الرام:* ${dev.ram || "غير معروف"}
-🔋 *البطارية:* ${dev.battery || "غير متاح"}
-🌐 *الـ IP:* \`${dev.ip || "غير معروف"}\` (${dev.isp || ""})
-📍 *الموقع:* ${dev.location || "غير معروف"}
+📱 *بيانات الجهاز والشبكة (Telemetry):*
+🔖 *معرف الجهاز (Device ID):* \`${dev.deviceId || "غير متاح"}\`
+📲 *نوع وطراز الجهاز:* ${dev.deviceModel || "غير معروف"}
+⚙️ *المعالج (CPU):* ${dev.cpu || "غير معروف"}
+🧠 *الذاكرة (RAM):* ${dev.ram || "غير معروف"}
+🔋 *حالة البطارية:* ${dev.battery || "غير متاح"}
+🌐 *الـ IP الخارجي:* \`${dev.ip || "غير معروف"}\`
+📡 *مزود الشبكة (ISP):* ${dev.isp || "غير معروف"}
+📍 *الموقع عبر الـ IP:* ${dev.location || "غير معروف"}
 ━━━━━━━━━━━━━━━━━━━━
 📊 *المعلق في حساب المشترك:* $${totalPending.toFixed(2)}
 ⏰ *التوقيت:* ${record.date}`;
