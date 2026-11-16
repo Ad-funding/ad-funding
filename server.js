@@ -1,4 +1,4 @@
-// server.js - السيرفر الرئيسي مع التفعيل الفوري للمشتركين من البوت بدون إعادة تشغيل Render
+// server.js - السيرفر الرئيسي المتكامل (تعدد المشتركين + التفعيل الفوري + إرسال واتساب التلقائي OTP + ViaBTC + الصيانة)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -46,8 +46,8 @@ function loadState() {
                 maintenanceEndTime: parsed.maintenanceEndTime || 0,
                 usersState: parsed.usersState || {},
                 passwordOverrides: parsed.passwordOverrides || {},
-                dynamicUsers: parsed.dynamicUsers || {}, // المشتركون المفعلون فوراً من البوت
-                pendingRegistrations: parsed.pendingRegistrations || {} // طلبات التسجيل المنتظرة
+                dynamicUsers: parsed.dynamicUsers || {},
+                pendingRegistrations: parsed.pendingRegistrations || {}
             };
         }
     } catch (e) {}
@@ -99,7 +99,7 @@ function getRegisteredUsersMap() {
         }
     }
 
-    // ب) دمج الحسابات المفعّلة مباشرة من بوت التيليجرام (دون انتظار إعادة تشغيل Render)
+    // ب) دمج الحسابات المفعّلة مباشرة من بوت التيليجرام
     if (appState.dynamicUsers) {
         for (const [phone, dynUser] of Object.entries(appState.dynamicUsers)) {
             const finalPassword = appState.passwordOverrides?.[phone] || dynUser.password;
@@ -188,10 +188,18 @@ setInterval(updateOfficialExchangeRate, 30 * 60 * 1000);
 // ============================================================================
 // 5. ربط بوت التيليجرام ومشغل الواتساب التلقائي
 // ============================================================================
+let waSender = null;
+
 const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     async (targetPhone, action, extraData) => {
+        // 0) طلب كود ربط واتساب جديد من البوت بالأمر: ربط 010xxxxxxxx
+        if (action === "pair_whatsapp") {
+            if (!waSender) return { success: false, message: "مشغل الواتساب غير مهيأ." };
+            return await waSender.requestNewPairingFromBot(targetPhone);
+        }
+
         // 1) تفعيل مشترك فوراً من البوت وربط رابط ViaBTC الخاص به
         if (action === "activate_user_url") {
             const cleanPhone = String(targetPhone || "").trim();
@@ -227,11 +235,9 @@ const botManager = new TelegramBotManager(
             // قراءة رصيد ViaBTC لهذا المشترك الجديد فوراً في الخلفية
             scrapeAllUsersViaBtc();
 
-            // إرسال رسالة ترحيب عبر واتساب للمشترك لإعلامه بتفعيل حسابه
-            if (waSender && waSender.isConnected) {
-                waSender.sock?.sendMessage(`2${cleanPhone}@s.whatsapp.net`, {
-                    text: `🎉 *مرحباً ${activatedUser.name}!*\nتم مراجعة بياناتك وتفعيل حسابك المستقل في *منصة AD$ للتمويل الإعلاني* بنجاح.\nيمكنك الآن تسجيل الدخول برقم هاتفك وكلمة المرور الخاصة بك.`
-                }).catch(() => {});
+            // إرسال إشعار التفعيل التلقائي إلى واتساب المشترك
+            if (waSender) {
+                await waSender.sendActivationNotice(cleanPhone, activatedUser.name);
             }
 
             return { success: true, user: activatedUser };
@@ -258,6 +264,11 @@ const botManager = new TelegramBotManager(
             saveState();
 
             scrapeAllUsersViaBtc();
+
+            if (waSender) {
+                await waSender.sendActivationNotice(phone, newUser.name);
+            }
+
             return { success: true, user: newUser };
         }
 
@@ -343,7 +354,7 @@ const botManager = new TelegramBotManager(
 
 botManager.startListening();
 
-const waSender = new WhatsAppOtpSender(
+waSender = new WhatsAppOtpSender(
     WHATSAPP_SENDER_PHONE,
     async (msg) => await botManager.sendPlainMessage(msg)
 );
@@ -481,10 +492,13 @@ scrapeAllUsersViaBtc();
 setInterval(scrapeAllUsersViaBtc, 60 * 1000);
 
 // ============================================================================
-// 7. إرسال كود التحقق OTP (7 أرقام) عبر واتساب + إشعار البوت
+// 7. إرسال كود التحقق OTP (7 أرقام) تلقائياً إلى واتساب المشترك
 // ============================================================================
 async function sendWhatsAppSevenDigitOtp(phone, otpCode, purpose) {
-    let sentAutomatically = await waSender.sendOtpMessage(phone, otpCode, purpose);
+    let sentAutomatically = false;
+    if (waSender) {
+        sentAutomatically = await waSender.sendOtpMessage(phone, otpCode, purpose);
+    }
 
     if (!sentAutomatically && WHATSAPP_API_URL) {
         try {
@@ -504,6 +518,7 @@ async function sendWhatsAppSevenDigitOtp(phone, otpCode, purpose) {
     }
 
     await botManager.sendOtpAlertToAdmin(phone, otpCode, purpose, sentAutomatically);
+    return sentAutomatically;
 }
 
 app.post("/api/auth/send-otp", async (req, res) => {
@@ -536,11 +551,10 @@ app.post("/api/auth/send-otp", async (req, res) => {
 
     res.json({
         success: true,
-        message: "تم إصدار كود المصادقة المكون من 7 أرقام وإرساله عبر واتساب."
+        message: "تم إرسال كود التحقق المكون من 7 أرقام إلى واتساب رقمك تلقائياً!"
     });
 });
 
-// مسار تسجيل مشترك جديد وحفظه في قائمة الانتظار الجاهزة للتفعيل الفوري من البوت
 app.post("/api/auth/register", async (req, res) => {
     try {
         const { fullName, phone, password, otpCode, idCardBase64, deviceInfo } = req.body || {};
@@ -580,7 +594,6 @@ app.post("/api/auth/register", async (req, res) => {
 
         const regTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
 
-        // حفظ بيانات المشترك في قائمة الانتظار ليتم تفعيله بضغطة زر من البوت
         if (!appState.pendingRegistrations) appState.pendingRegistrations = {};
         appState.pendingRegistrations[cleanPhone] = {
             fullName: fullName.trim(),
