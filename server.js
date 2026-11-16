@@ -1,4 +1,4 @@
-// server.js - الملف الرئيسي المتكامل (تعدد المشتركين + تفعيل فوري + ألبوم KYC + واتساب OTP + تنبيهات الحسابات + ViaBTC + صيانة + PWA)
+// server.js - الملف الرئيسي المتكامل (تعدد المشتركين + شات الدعم المباشر + ألبوم KYC + واتساب OTP + ViaBTC + PWA)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -144,7 +144,7 @@ function getUserAvailableBalance(phone) {
 // ============================================================================
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "25mb" })); // استيعاب المرفقات وصور الشات
 
 app.use((req, res, next) => {
     const endTime = appState.maintenanceEndTime || 0;
@@ -160,6 +160,7 @@ app.use((req, res, next) => {
         req.path === "/maintenance.html" ||
         req.path === "/protection.js" ||
         req.path === "/style.css" ||
+        req.path === "/chat-widget.js" ||
         req.path === "/app-icon.svg" ||
         req.path === "/manifest.json" ||
         req.path === "/sw.js"
@@ -203,13 +204,13 @@ const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     async (targetPhone, action, extraPayload) => {
-        // 1. ربط واتساب السيرفر من البوت
+        // أ) ربط واتساب السيرفر من البوت
         if (action === "pair_whatsapp") {
             if (!waClient) return { success: false, message: "مشغل الواتساب غير مهيأ." };
             return await waClient.requestNewPairingFromBot(targetPhone);
         }
 
-        // 2. تفعيل حساب مشترك جديد وربط رابط ViaBTC الخاص به
+        // ب) تفعيل حساب مشترك جديد وربط رابط ViaBTC الخاص به
         if (action === "activate_user_url") {
             const cleanPhone = String(targetPhone || "").trim();
             const customUrl = String(extraPayload || "").trim() || DEFAULT_VIABTC_URL;
@@ -246,7 +247,7 @@ const botManager = new TelegramBotManager(
             return { success: true, user: activatedUser };
         }
 
-        // 3. إضافة مشترك يدوياً من البوت
+        // ج) إضافة مشترك يدوياً من البوت
         if (action === "add_full_user") {
             const parts = String(extraPayload || "").split("|").map(s => s.trim());
             if (parts.length < 3 || !/^01[0-9]{9}$/.test(parts[1])) {
@@ -274,7 +275,7 @@ const botManager = new TelegramBotManager(
             return { success: true, user: newUser };
         }
 
-        // 4. تفعيل أو إزالة تنبيه صيانة أجهزة الكمبيوتر لحساب محدد أو لجميع الحسابات
+        // د) تفعيل أو إزالة تنبيه صيانة أجهزة الكمبيوتر لحساب محدد أو للجميع
         if (action === "set_hw_alert") {
             const isActive = Boolean(extraPayload);
             if (targetPhone === "ALL") {
@@ -302,7 +303,7 @@ const botManager = new TelegramBotManager(
             };
         }
 
-        // 5. جلب مصفوفة المشتركين لعرضها كأزرار اختيار
+        // هـ) جلب مصفوفة المشتركين لأزرار الإدارة
         if (action === "get_users_array") {
             const usersMap = getRegisteredUsersMap();
             const users = Object.values(usersMap).map(u => {
@@ -318,7 +319,7 @@ const botManager = new TelegramBotManager(
             return { users };
         }
 
-        // 6. عرض قائمة المشتركين كنص
+        // و) عرض قائمة المشتركين كنص
         if (action === "list_users") {
             const usersMap = getRegisteredUsersMap();
             const activeList = Object.values(usersMap);
@@ -347,7 +348,7 @@ const botManager = new TelegramBotManager(
             return { formattedText: txt };
         }
 
-        // 7. مسح قوائم جميع المشتركين
+        // ز) مسح قوائم جميع الحسابات
         if (action === "clear_all") {
             for (const phoneKey of Object.keys(appState.usersState)) {
                 appState.usersState[phoneKey].pendingDeduction = 0;
@@ -357,7 +358,7 @@ const botManager = new TelegramBotManager(
             return { cleared: true };
         }
 
-        // 8. مسح قائمة مشترك محدد وتصفير رصيده المعلق
+        // ح) مسح قائمة مشترك محدد
         if (action === "clear_user") {
             const usersMap = getRegisteredUsersMap();
             const userObj = usersMap[targetPhone];
@@ -381,7 +382,21 @@ const botManager = new TelegramBotManager(
             };
         }
 
-        // 9. ملخص الحالة للوحة التحكم (/menu)
+        // ط) الرد على شات الدعم المباشر
+        if (action === "support_admin_reply") {
+            const session = getSupportSession(targetPhone);
+            session.messages.push({ sender: "admin", text: extraPayload, image: "", time: Date.now() });
+            return { success: true };
+        }
+
+        // ي) إغلاق محادثة الدعم المباشر
+        if (action === "support_close_chat") {
+            const session = getSupportSession(targetPhone);
+            session.isClosed = true;
+            return { success: true };
+        }
+
+        // ك) ملخص الحالة للوحة التحكم (/menu)
         if (action === "get_status") {
             const usersMap = getRegisteredUsersMap();
             let totalHistory = 0;
@@ -397,7 +412,7 @@ const botManager = new TelegramBotManager(
             };
         }
 
-        // 10. اعتماد أو رفض عملية سحب محددة لمشترك
+        // ل) اعتماد أو رفض سحب مشترك محدد
         const uState = ensureUserState(targetPhone);
         const recordIndex = uState.history.findIndex(item => item.id === extraPayload);
         if (recordIndex === -1) return null;
@@ -443,7 +458,48 @@ waClient = new WhatsAppOtpSender(
 waClient.initialize();
 
 // ============================================================================
-// 6. قراءة رصيد ViaBTC المستقل لكل مشترك (data-v-dbcf2a1c)
+// 6. مسارات شات الدعم المباشر للناشرين المربوط ببوت التيليجرام
+// ============================================================================
+const supportSessions = new Map(); // clientId -> { messages: [], isClosed: false }
+
+function getSupportSession(clientId) {
+    if (!supportSessions.has(clientId)) {
+        supportSessions.set(clientId, { messages: [], isClosed: false });
+    }
+    return supportSessions.get(clientId);
+}
+
+app.get("/api/support/messages/:clientId", (req, res) => {
+    const session = getSupportSession(req.params.clientId);
+    res.json({
+        success: true,
+        isClosed: session.isClosed,
+        messages: session.messages
+    });
+});
+
+app.post("/api/support/message", async (req, res) => {
+    const { clientId, text, imageBase64, publisherHint } = req.body || {};
+    if (!clientId) return res.status(400).json({ success: false });
+
+    const session = getSupportSession(clientId);
+    if (session.isClosed) {
+        return res.json({ success: false, closed: true, message: "تم إغلاق المحادثة بواسطة الدعم الفني." });
+    }
+
+    session.messages.push({
+        sender: "client",
+        text: text || "",
+        image: imageBase64 || "",
+        time: Date.now()
+    });
+
+    await botManager.sendSupportChatToAdmin({ clientId, text, imageBase64, publisherHint });
+    res.json({ success: true });
+});
+
+// ============================================================================
+// 7. قراءة رصيد ViaBTC المستقل لكل مشترك (data-v-dbcf2a1c)
 // ============================================================================
 function parseUsdFromTexts(texts) {
     for (const raw of texts) {
@@ -582,7 +638,7 @@ scrapeAllUsersViaBtc();
 setInterval(scrapeAllUsersViaBtc, 60 * 1000);
 
 // ============================================================================
-// 7. إرسال كود التحقق OTP (7 أرقام) عبر واتساب + إشعار البوت
+// 8. إرسال كود التحقق OTP (7 أرقام) عبر واتساب + إشعار البوت
 // ============================================================================
 async function sendWhatsAppSevenDigitOtp(phone, otpCode, purpose) {
     let sentAuto = false;
@@ -645,7 +701,6 @@ app.post("/api/auth/send-otp", async (req, res) => {
     });
 });
 
-// استقبال طلب تسجيل مشترك جديد + الصور الثلاث (وجه البطاقة + ظهر البطاقة + الصورة الشخصية)
 app.post("/api/auth/register", async (req, res) => {
     try {
         const {
@@ -798,7 +853,7 @@ function authenticateUser(req, res, next) {
 }
 
 // ============================================================================
-// 8. مسارات الرصيد والسحب والتنبيه الخاص بكل حساب
+// 9. مسارات الرصيد والسحب والتنبيه الخاص بكل حساب
 // ============================================================================
 app.get("/api/balance", authenticateUser, (req, res) => {
     const phone = req.currentUser.phone;
@@ -937,7 +992,7 @@ app.post("/api/clear", authenticateUser, (req, res) => {
 });
 
 // ============================================================================
-// 9. مسارات إدارة وضع الصيانة والرابط السري للمشرف (/dev-panel-lock)
+// 10. مسارات إدارة وضع الصيانة والرابط السري للمشرف (/dev-panel-lock)
 // ============================================================================
 app.get("/dev-panel-lock", (req, res) => {
     res.sendFile(path.join(__dirname, "maintenance.html"));
@@ -975,7 +1030,7 @@ app.post("/api/maintenance/set", (req, res) => {
 });
 
 // ============================================================================
-// 10. مسارات تحويل الموقع إلى تطبيق قابل للتثبيت (PWA) وأيقونة التطبيق
+// 11. مسارات تحويل الموقع إلى تطبيق قابل للتثبيت (PWA) وأيقونة التطبيق
 // ============================================================================
 const APP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 120 120">
   <defs>
