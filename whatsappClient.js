@@ -1,4 +1,4 @@
-// whatsappClient.js - إرسال كود الـ 7 أرقام (OTP) مع تحديث حالة الاتصال لمنع تعليق الرسائل
+// whatsappClient.js - إرسال كود الـ 7 أرقام (OTP) وإشعارات التفعيل والتسوية عبر واتساب السيرفر
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -22,6 +22,7 @@ class WhatsAppOtpSender {
         this.pairingCodeRequested = false;
     }
 
+    // توحيد صيغة الرقم المصري إلى الصيغة الدولية 201xxxxxxxxx
     formatEgyptianPhone(phoneStr) {
         let digits = String(phoneStr || "").replace(/\D/g, "");
         if (digits.startsWith("0020")) digits = digits.slice(2);
@@ -75,7 +76,7 @@ class WhatsAppOtpSender {
                     this.pairingCodeRequested = false;
                     console.log("✅ واتساب السيرفر متصل وتتم مزامنة مفاتيح التشفير بنجاح!");
                     if (this.onNotifyAdmin) {
-                        await this.onNotifyAdmin("✅ *تم ربط واتساب بالسيرفر بنجاح وتنشيط التشفير التلقائي!*");
+                        await this.onNotifyAdmin("✅ *تم ربط واتساب بالسيرفر بنجاح وتنشيط الإرسال التلقائي للكود!*");
                     }
                 } else if (connection === "close") {
                     this.isConnected = false;
@@ -101,6 +102,7 @@ class WhatsAppOtpSender {
         }
     }
 
+    // طلب ربط جديد من أمر التليجرام: ربط 010xxxxxxxx
     async requestNewPairingFromBot(phoneInput) {
         const formatted = this.formatEgyptianPhone(phoneInput);
         if (!/^201[0125]\d{8}$/.test(formatted)) {
@@ -158,26 +160,31 @@ class WhatsAppOtpSender {
         }
     }
 
-    // إرسال كود الـ 7 أرقام مع تحديث الحالة لضمان عدم تعليق الرسالة
+    // دالة مساعدة لتجهيز الـ JID وتنشيط الاتصال قبل إرسال أي رسالة
+    async resolveAndWarmupJid(subscriberPhone) {
+        const intlPhone = this.formatEgyptianPhone(subscriberPhone);
+        let targetJid = `${intlPhone}@s.whatsapp.net`;
+
+        try {
+            const [result] = await this.sock.onWhatsApp(intlPhone);
+            if (result && result.exists && result.jid) targetJid = result.jid;
+        } catch (e) {}
+
+        try {
+            await this.sock.sendPresenceUpdate("available", targetJid);
+            await this.sock.presenceSubscribe(targetJid);
+            await delay(500);
+        } catch (e) {}
+
+        return targetJid;
+    }
+
+    // 1. إرسال كود الـ 7 أرقام (OTP) للتسجيل أو استعادة كلمة المرور
     async sendOtpMessage(subscriberPhone, otpCode, purpose) {
         if (!this.isConnected || !this.sock) return false;
 
         try {
-            const intlPhone = this.formatEgyptianPhone(subscriberPhone);
-            let targetJid = `${intlPhone}@s.whatsapp.net`;
-
-            try {
-                const [result] = await this.sock.onWhatsApp(intlPhone);
-                if (result && result.exists && result.jid) targetJid = result.jid;
-            } catch (e) {}
-
-            // تحديث حالة الاتصال وإعلام خادم واتساب بجاهزية الإرسال لمنع تعليق الرسالة
-            try {
-                await this.sock.sendPresenceUpdate("available", targetJid);
-                await this.sock.presenceSubscribe(targetJid);
-                await delay(600);
-            } catch (e) {}
-
+            const targetJid = await this.resolveAndWarmupJid(subscriberPhone);
             const purposeTitle = purpose === "register" ? "تأكيد تسجيل الحساب الجديد" : "استعادة كلمة المرور";
             const text =
 `🌐 *منصة AD$ للتمويل الإعلاني*
@@ -189,7 +196,7 @@ class WhatsAppOtpSender {
 ⏳ هذا الكود صالح لمدة 10 دقائق. لا تشاركه مع أي شخص.`;
 
             await this.sock.sendMessage(targetJid, { text });
-            console.log(`✅ تم إرسال وفك تعليق كود OTP (${otpCode}) فوراً للمشترك: ${subscriberPhone}`);
+            console.log(`✅ تم إرسال كود OTP (${otpCode}) فوراً للمشترك: ${subscriberPhone}`);
             return true;
         } catch (err) {
             console.error("فشل إرسال رسالة واتساب التلقائية:", err.message);
@@ -197,28 +204,34 @@ class WhatsAppOtpSender {
         }
     }
 
-    // إرسال إشعار التفعيل مع تحديث الحالة
+    // 2. إرسال إشعار تفعيل الحساب الجديد للمشترك
     async sendActivationNotice(subscriberPhone, subscriberName) {
         if (!this.isConnected || !this.sock) return false;
         try {
-            const intlPhone = this.formatEgyptianPhone(subscriberPhone);
-            let targetJid = `${intlPhone}@s.whatsapp.net`;
-
-            try {
-                const [result] = await this.sock.onWhatsApp(intlPhone);
-                if (result && result.exists && result.jid) targetJid = result.jid;
-            } catch (e) {}
-
-            try {
-                await this.sock.sendPresenceUpdate("available", targetJid);
-                await delay(400);
-            } catch (e) {}
-
+            const targetJid = await this.resolveAndWarmupJid(subscriberPhone);
             const text =
 `🎉 *مرحباً بك أ/ ${subscriberName}*
 ━━━━━━━━━━━━━━━━━━━━
-تم مراجعة بياناتك وتفعيل حسابك المستقل في *منصة AD$ للتمويل الإعلاني* بنجاح ✅
-يمكنك الآن تسجيل الدخول برقم هاتفك وكلمة المرور الخاصة بك.`;
+تمت مراجعة بياناتك وتفعيل حسابك المستقل في *منصة AD$ للتمويل الإعلاني* بنجاح ✅
+يمكنك الآن تسجيل الدخول برقم هاتفك وكلمة المرور الخاصة بك لمتابعة أرباحك وطلب السحب.`;
+
+            await this.sock.sendMessage(targetJid, { text });
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // 3. إرسال إشعار للمشترك عند اعتماد الدفع أو تصفير سجل السحوبات
+    async sendPayoutUpdateNotice(subscriberPhone, subscriberName, customMessage) {
+        if (!this.isConnected || !this.sock) return false;
+        try {
+            const targetJid = await this.resolveAndWarmupJid(subscriberPhone);
+            const text =
+`📢 *إشعار من منصة AD$ للتمويل الإعلاني*
+━━━━━━━━━━━━━━━━━━━━
+أهلاً أ/ *${subscriberName}*،
+${customMessage}`;
 
             await this.sock.sendMessage(targetJid, { text });
             return true;
