@@ -72,15 +72,9 @@ class TelegramBotManager {
             return;
         }
 
-        // 1. أمر ربط واتساب السيرفر للإرسال التلقائي: ربط 010xxxxxxxx أو /pair 010xxxxxxxx
-        if (text.startsWith("ربط ") || text.startsWith("/pair ")) {
-            const phone = text.replace(/^(\/pair|ربط)\s+/i, "").trim();
-            await this.sendPlainMessage(`⏳ *جاري توليد كود ربط الواتساب التلقائي للرقم* \`${phone}\` *... انتظر 5 ثوانٍ.*`);
-            const res = await this.onDecisionCallback(phone, "pair_whatsapp");
-            if (!res?.success) {
-                await this.sendPlainMessage(`⚠️ ${res?.message || "تعذر طلب كود الربط."}`);
-            }
-            return;
+        // داخل دالة onDecisionCallback في server.js أضف هذا الشرط في بدايتها:
+        if (action === "pair_whatsapp") {
+            return await waSender.requestNewPairingFromBot(targetPhone);
         }
 
         // 2. استلام رابط ViaBTC لتفعيل مشترك
