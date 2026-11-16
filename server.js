@@ -1,4 +1,4 @@
-// server.js - السيرفر الرئيسي المتكامل (تعدد المشتركين + التفعيل الفوري + إرسال واتساب التلقائي OTP + ViaBTC + الصيانة)
+// server.js - السيرفر الرئيسي المتكامل (تعدد المشتركين + التفعيل الفوري + واتساب OTP التلقائي + ViaBTC + الصيانة + PWA)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -77,7 +77,6 @@ const otpStore = new Map();
 function getRegisteredUsersMap() {
     const users = {};
 
-    // أ) قراءة الحسابات المضافة في Render Environment Variables (USER_01xxxxxxxxx)
     for (const [key, val] of Object.entries(process.env)) {
         if (key.startsWith("USER_01") && val) {
             const phone = key.replace("USER_", "").trim();
@@ -99,7 +98,6 @@ function getRegisteredUsersMap() {
         }
     }
 
-    // ب) دمج الحسابات المفعّلة مباشرة من بوت التيليجرام
     if (appState.dynamicUsers) {
         for (const [phone, dynUser] of Object.entries(appState.dynamicUsers)) {
             const finalPassword = appState.passwordOverrides?.[phone] || dynUser.password;
@@ -194,13 +192,11 @@ const botManager = new TelegramBotManager(
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
     async (targetPhone, action, extraData) => {
-        // 0) طلب كود ربط واتساب جديد من البوت بالأمر: ربط 010xxxxxxxx
         if (action === "pair_whatsapp") {
             if (!waSender) return { success: false, message: "مشغل الواتساب غير مهيأ." };
             return await waSender.requestNewPairingFromBot(targetPhone);
         }
 
-        // 1) تفعيل مشترك فوراً من البوت وربط رابط ViaBTC الخاص به
         if (action === "activate_user_url") {
             const cleanPhone = String(targetPhone || "").trim();
             const customUrl = String(extraData || "").trim() || DEFAULT_VIABTC_URL;
@@ -232,10 +228,8 @@ const botManager = new TelegramBotManager(
             ensureUserState(cleanPhone);
             saveState();
 
-            // قراءة رصيد ViaBTC لهذا المشترك الجديد فوراً في الخلفية
             scrapeAllUsersViaBtc();
 
-            // إرسال إشعار التفعيل التلقائي إلى واتساب المشترك
             if (waSender) {
                 await waSender.sendActivationNotice(cleanPhone, activatedUser.name);
             }
@@ -243,7 +237,6 @@ const botManager = new TelegramBotManager(
             return { success: true, user: activatedUser };
         }
 
-        // 2) إضافة مشترك كامل يدوياً من البوت بالأمر: اضافة الاسم|الرقم|الباسورد|الرابط
         if (action === "add_full_user") {
             const parts = String(extraData || "").split("|").map(s => s.trim());
             if (parts.length < 3 || !/^01[0-9]{9}$/.test(parts[1])) {
@@ -272,7 +265,6 @@ const botManager = new TelegramBotManager(
             return { success: true, user: newUser };
         }
 
-        // 3) عرض قائمة المشتركين المفعّلين والمنتظرين
         if (action === "list_users") {
             const usersMap = getRegisteredUsersMap();
             const activeList = Object.values(usersMap);
@@ -298,7 +290,6 @@ const botManager = new TelegramBotManager(
             return { formattedText: txt };
         }
 
-        // 4) مسح قوائم السحوبات
         if (action === "clear_all") {
             for (const phoneKey of Object.keys(appState.usersState)) {
                 appState.usersState[phoneKey].pendingDeduction = 0;
@@ -331,7 +322,6 @@ const botManager = new TelegramBotManager(
             };
         }
 
-        // 5) قبول أو رفض عملية سحب
         const uState = ensureUserState(targetPhone);
         const recordIndex = uState.history.findIndex(item => item.id === extraData);
         if (recordIndex === -1) return null;
@@ -393,7 +383,9 @@ function parseUsdFromTexts(texts) {
 }
 
 async function scrapeAllUsersViaBtc() {
-    if (isScrapingNow) return;
+    // عدم تشغيل المتصفح الخفي أثناء عملية ربط الواتساب لضمان سرعة المعالج
+    if (isScrapingNow || (waSender && waSender.pairingCodeRequested && !waSender.isConnected)) return;
+
     const usersMap = getRegisteredUsersMap();
     const userEntries = Object.values(usersMap).filter(u => u.viabtcUrl && u.viabtcUrl.startsWith("http"));
     if (userEntries.length === 0) return;
@@ -488,8 +480,11 @@ async function scrapeAllUsersViaBtc() {
     }
 }
 
-scrapeAllUsersViaBtc();
-setInterval(scrapeAllUsersViaBtc, 60 * 1000);
+// تأجيل أول قراءة لـ ViaBTC مدة 25 ثانية عند بدء السيرفر لترك المعالج متفرغاً لربط الواتساب
+setTimeout(() => {
+    scrapeAllUsersViaBtc();
+    setInterval(scrapeAllUsersViaBtc, 60 * 1000);
+}, 25000);
 
 // ============================================================================
 // 7. إرسال كود التحقق OTP (7 أرقام) تلقائياً إلى واتساب المشترك
