@@ -108,7 +108,7 @@ class WhatsAppOtpSender {
         if (!/^201[0125]\d{8}$/.test(formatted)) {
             return {
                 success: false,
-                message: "رقم الهاتف غير صحيح! اكتب رقماً مصرياً مكوناً من 11 رقماً يبدأ بـ 01 (مثال: ربط 01012345678)."
+                message: "رقم الهاتف غير صحيح! اكتب رقماً مصرياً (مثال: ربط 01012345678)."
             };
         }
 
@@ -179,7 +179,7 @@ class WhatsAppOtpSender {
         return targetJid;
     }
 
-    // 1. إرسال كود الـ 7 أرقام (OTP) للتسجيل أو استعادة كلمة المرور
+    // 1. إرسال الكود (OTP) للتسجيل أو استعادة كلمة المرور
     async sendOtpMessage(subscriberPhone, otpCode, purpose) {
         if (!this.isConnected || !this.sock) return false;
 
@@ -189,7 +189,7 @@ class WhatsAppOtpSender {
             const text =
 `🌐 *منصة AD$ للتمويل الإعلاني*
 ━━━━━━━━━━━━━━━━━━━━
-🔐 كود التحقق الخاص بك (${purposeTitle}) المكون من 7 أرقام هو:
+🔐 كود التحقق الخاص بك (${purposeTitle}) هو:
 
 *${otpCode}*
 
