@@ -1,4 +1,4 @@
-// whatsappClient.js - إرسال كود الـ 7 أرقام (OTP) وإشعارات التفعيل والتسوية عبر واتساب السيرفر (محصن للإرسال المتكرر)
+// whatsappClient.js - نسخة مستقرة تمنع تكرار رسائل الربط وتعالج رفض الكود
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -19,11 +19,13 @@ class WhatsAppOtpSender {
         this.sock = null;
         this.isConnected = false;
         this.isInitializing = false;
-        this.pairingCodeRequested = false;
-        this.sendQueue = Promise.resolve(); // طابور تسلسلي لمنع تعارض مفاتيح التشفير عند الإرسال المتكرر
+        this.manualPairingMode = false; // يفعّل فقط عند إرسال أمر "ربط" من تيليجرام
+        this.pairingCodeSentForSession = false;
+        this.lastConnectedNotifyTime = 0;
+        this.sendQueue = Promise.resolve();
     }
 
-    // توحيد صيغة الرقم المصري إلى الصيغة الدولية 201xxxxxxxxx
+    // توحيد صيغة الرقم المصري إلى الصيغة الدولية الدقيقة: 201xxxxxxxxx (12 رقماً)
     formatEgyptianPhone(phoneStr) {
         let digits = String(phoneStr || "").replace(/\D/g, "");
         if (digits.startsWith("0020")) digits = digits.slice(2);
@@ -33,10 +35,21 @@ class WhatsAppOtpSender {
         return digits;
     }
 
-    async initialize(customPhone = null) {
+    async initialize(customPhone = null, isManualPair = false) {
         if (this.isInitializing) return;
+
+        // إذا لم تكن هناك جلسة محفوظة ولم يطلب المدير الربط يدوياً، لا تبدأ حلقة طلب أكواد عشوائية
+        const hasSavedCreds = fs.existsSync(path.join(this.authFolder, "creds.json"));
+        if (!hasSavedCreds && !isManualPair) {
+            console.log("ℹ️ لا توجد جلسة واتساب محفوظة حالياً. أرسل (ربط 010xxxxxxxx) في تيليجرام للربط.");
+            return;
+        }
+
         this.isInitializing = true;
-        this.pairingCodeRequested = false;
+        if (isManualPair) {
+            this.manualPairingMode = true;
+            this.pairingCodeSentForSession = false;
+        }
 
         if (customPhone) {
             this.pairingPhone = this.formatEgyptianPhone(customPhone);
@@ -51,14 +64,13 @@ class WhatsAppOtpSender {
                 logger: pino({ level: "silent" }),
                 printQRInTerminal: false,
                 auth: state,
-                browser: Browsers.ubuntu("Chrome"),
+                browser: ["Ubuntu", "Chrome", "124.0.0"],
                 syncFullHistory: false,
-                markOnlineOnConnect: true,
+                markOnlineOnConnect: false,
                 generateHighQualityLinkPreview: false,
                 connectTimeoutMs: 60000,
                 defaultQueryTimeoutMs: 60000,
-                keepAliveIntervalMs: 20000,
-                retryRequestDelayMs: 1500
+                keepAliveIntervalMs: 25000
             });
 
             this.sock.ev.on("creds.update", saveCreds);
@@ -66,9 +78,15 @@ class WhatsAppOtpSender {
             this.sock.ev.on("connection.update", async (update) => {
                 const { connection, lastDisconnect, qr } = update;
 
-                if (qr && !this.sock.authState.creds.registered && !this.pairingCodeRequested) {
+                // توليد كود الربط مرة واحدة فقط عند طلب المدير اليدوي
+                if (
+                    qr &&
+                    this.manualPairingMode &&
+                    !this.sock.authState.creds.registered &&
+                    !this.pairingCodeSentForSession
+                ) {
                     if (this.pairingPhone && /^201[0125]\d{8}$/.test(this.pairingPhone)) {
-                        this.pairingCodeRequested = true;
+                        this.pairingCodeSentForSession = true;
                         await this.generatePairingCodeNow(this.pairingPhone, qr);
                     }
                 }
@@ -76,26 +94,39 @@ class WhatsAppOtpSender {
                 if (connection === "open") {
                     this.isConnected = true;
                     this.isInitializing = false;
-                    this.pairingCodeRequested = false;
-                    console.log("✅ واتساب السيرفر متصل وجاهز للإرسال المستمر!");
-                    if (this.onNotifyAdmin) {
+                    this.manualPairingMode = false;
+                    this.pairingCodeSentForSession = false;
+                    console.log("✅ واتساب السيرفر متصل ومستقر!");
+
+                    // منع تكرار رسالة "تم الربط بنجاح" إذا حدثت إعادة اتصال سريعة
+                    const now = Date.now();
+                    if (this.onNotifyAdmin && now - this.lastConnectedNotifyTime > 60000) {
+                        this.lastConnectedNotifyTime = now;
                         await this.onNotifyAdmin("✅ *تم ربط واتساب بالسيرفر بنجاح وتنشيط الإرسال التلقائي للكود!*");
                     }
                 } else if (connection === "close") {
                     this.isConnected = false;
                     this.isInitializing = false;
-                    const statusCode = lastDisconnect?.error?.output?.statusCode;
-                    const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-                    if (shouldReconnect) {
-                        setTimeout(() => this.initialize(), 4000);
-                    } else {
+                    const statusCode = lastDisconnect?.error?.output?.statusCode;
+                    const errorReason = lastDisconnect?.error?.message || "";
+
+                    // إذا تم طرد الجلسة من الهاتف أو انتهت صلاحيتها
+                    if (statusCode === DisconnectReason.loggedOut) {
+                        this.manualPairingMode = false;
                         try {
                             fs.rmSync(this.authFolder, { recursive: true, force: true });
                         } catch (e) {}
                         if (this.onNotifyAdmin) {
-                            await this.onNotifyAdmin("⚠️ *انتهت جلسة واتساب.*\nلإعادة الربط أرسل في البوت:\n`ربط 010xxxxxxxx`");
+                            await this.onNotifyAdmin("⚠️ *تم تسجيل الخروج من واتساب.*\nلإعادة الربط أرسل في البوت:\n`ربط 010xxxxxxxx`");
                         }
+                        return;
+                    }
+
+                    // إذا كان هناك تعارض أثناء إعادة تشغيل Render، انتظر 12 ثانية قبل إعادة الاتصال
+                    const reconnectDelay = errorReason.includes("conflict") || statusCode === 440 ? 12000 : 5000;
+                    if (fs.existsSync(path.join(this.authFolder, "creds.json"))) {
+                        setTimeout(() => this.initialize(null, false), reconnectDelay);
                     }
                 }
             });
@@ -105,30 +136,37 @@ class WhatsAppOtpSender {
         }
     }
 
-    // طلب ربط جديد من أمر التليجرام: ربط 010xxxxxxxx
+    // طلب ربط جديد يدوياً من تيليجرام: ربط 010xxxxxxxx
     async requestNewPairingFromBot(phoneInput) {
         const formatted = this.formatEgyptianPhone(phoneInput);
         if (!/^201[0125]\d{8}$/.test(formatted)) {
             return {
                 success: false,
-                message: "رقم الهاتف غير صحيح! اكتب رقماً مصرياً (مثال: ربط 01012345678)."
+                message: "رقم الهاتف غير صحيح! اكتب رقماً مصرياً مكوناً من 11 رقماً يبدأ بـ 01 (مثال: ربط 01012345678)."
             };
         }
 
         try {
             if (this.sock) {
-                try { this.sock.end(undefined); } catch (e) {}
+                try {
+                    this.sock.ev.removeAllListeners();
+                    this.sock.end(undefined);
+                } catch (e) {}
                 this.sock = null;
             }
+
             this.isConnected = false;
             this.isInitializing = false;
-            this.pairingCodeRequested = false;
+            this.manualPairingMode = true;
+            this.pairingCodeSentForSession = false;
 
+            // مسح الجلسة السابقة بالكامل لضمان عدم رفض الكود الجديد
             try {
                 fs.rmSync(this.authFolder, { recursive: true, force: true });
             } catch (e) {}
 
-            await this.initialize(formatted);
+            await delay(1000);
+            await this.initialize(formatted, true);
             return { success: true };
         } catch (err) {
             return { success: false, message: err.message };
@@ -138,7 +176,7 @@ class WhatsAppOtpSender {
     async generatePairingCodeNow(targetPhone, rawQrString) {
         if (!this.sock || this.sock.authState?.creds?.registered) return;
         try {
-            await delay(1500);
+            await delay(2500); // انتظار استقرار المقبس قبل طلب الكود
             const code = await this.sock.requestPairingCode(targetPhone);
             const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
             const localDisplayPhone = "0" + targetPhone.slice(2);
@@ -146,35 +184,33 @@ class WhatsAppOtpSender {
 
             if (this.onNotifyAdmin) {
                 await this.onNotifyAdmin(
-`📲 *كود ربط الواتساب بالسيرفر*
+`📲 *كود ربط الواتساب بالسيرفر (صالح لدقيقتين)*
 ━━━━━━━━━━━━━━━━━━━━
-📌 *الرقم:* \`${localDisplayPhone}\`
-🔑 *كود الربط (بدون شرطة):* \`${code}\`
-🔢 *بالتنسيق:* \`${formattedCode}\`
+📌 *الرقم المربوط:* \`${localDisplayPhone}\`
+🔑 *كود الربط:* \`${formattedCode}\`
 ━━━━━━━━━━━━━━━━━━━━
-1️⃣ من واتساب هاتفك ادخل: *الأجهزة المرتبطة* ← *ربط جهاز* ← *الربط برقم الهاتف*.
-2️⃣ إذا طلب رقمك بجانب \`+20\` اكتبه هكذا: \`${targetPhone.slice(2)}\`.
+⚠️ *ملاحظة هامة لنجاح الربط:*
+1️⃣ افتح واتساب على نفس الهاتف صاحب الرقم \`${localDisplayPhone}\` ← *الأجهزة المرتبطة* ← *ربط جهاز* ← *الربط برقم الهاتف*.
+2️⃣ اكتب الكود أعلاه فوراً (قبل انتهاء دقيقتين).
+3️⃣ إذا ظهر *"تعذر ربط الجهاز"* امسح أي أجهزة قديمة غير مستخدمة من قائمة *الأجهزة المرتبطة* في هاتفك ثم أرسل \`ربط ${localDisplayPhone}\` مرة واحدة فقط.
 ━━━━━━━━━━━━━━━━━━━━
-📷 *بديل فوري (QR):* [اضغط هنا لفتح صورة رمز الـ QR وامسحه بكاميرا واتساب](${qrImageUrl})`
+📷 *أو امسح رمز QR مباشرة:* [اضغط لفتح صورة الـ QR](${qrImageUrl})`
                 );
             }
         } catch (err) {
             console.error("خطأ أثناء توليد كود الربط:", err.message);
+            this.manualPairingMode = false;
         }
     }
 
-    // التحقق الحي من جاهزية الاتصال قبل الإرسال وإعادة التنشيط إذا كان في وضع خمول
     async ensureActiveConnection() {
         const wsState = this.sock?.ws?.readyState;
-        // في WebSocket: القيمة 1 تعني OPEN
         if (this.sock && this.isConnected && wsState === 1) {
             return true;
         }
 
-        // إذا كانت ملفات الجلسة موجودة لكن الاتصال خامل، نعيد تهيئته وننتظر حتى 8 ثوانٍ
         if (fs.existsSync(path.join(this.authFolder, "creds.json")) && !this.isInitializing) {
-            console.log("🔄 إعادة تنشيط اتصال واتساب قبل الإرسال...");
-            this.initialize();
+            this.initialize(null, false);
         }
 
         for (let i = 0; i < 16; i++) {
@@ -186,7 +222,6 @@ class WhatsAppOtpSender {
         return false;
     }
 
-    // دالة إرسال موحدة ومضمونة تعمل عبر طابور متسلسل مع إعادة المحاولة التلقائية
     enqueueSafeSend(subscriberPhone, text) {
         const task = async () => {
             const ready = await this.ensureActiveConnection();
@@ -205,14 +240,13 @@ class WhatsAppOtpSender {
                 }
             } catch (e) {}
 
-            // محاولة الإرسال الأولى + محاولة ثانية تلقائية في حال تعثر الجلسة
             for (let attempt = 1; attempt <= 2; attempt++) {
                 try {
                     await this.sock.sendPresenceUpdate("available", targetJid);
                     await delay(300);
                     const sentMsg = await this.sock.sendMessage(targetJid, { text });
                     if (sentMsg && sentMsg.key) {
-                        console.log(`✅ تم إرسال رسالة واتساب بنجاح (محاولة ${attempt}) إلى: ${subscriberPhone}`);
+                        console.log(`✅ تم إرسال رسالة واتساب بنجاح إلى: ${subscriberPhone}`);
                         return true;
                     }
                 } catch (err) {
@@ -223,13 +257,11 @@ class WhatsAppOtpSender {
             return false;
         };
 
-        // ربط المهمة بالطابور التسلسلي لضمان عدم تداخل الرسائل المتتالية
         const resultPromise = this.sendQueue.then(() => task()).catch(() => false);
         this.sendQueue = resultPromise.then(() => delay(600));
         return resultPromise;
     }
 
-    // 1. إرسال الكود (OTP) للتسجيل أو استعادة كلمة المرور
     async sendOtpMessage(subscriberPhone, otpCode, purpose) {
         const purposeTitle = purpose === "register" ? "تأكيد تسجيل الحساب الجديد" : "استعادة كلمة المرور";
         const text =
@@ -244,7 +276,6 @@ class WhatsAppOtpSender {
         return await this.enqueueSafeSend(subscriberPhone, text);
     }
 
-    // 2. إرسال إشعار تفعيل الحساب الجديد للمشترك
     async sendActivationNotice(subscriberPhone, subscriberName) {
         const text =
 `🎉 *مرحباً بك أ/ ${subscriberName}*
@@ -255,7 +286,6 @@ class WhatsAppOtpSender {
         return await this.enqueueSafeSend(subscriberPhone, text);
     }
 
-    // 3. إرسال إشعار للمشترك عند اعتماد الدفع أو تصفير سجل السحوبات
     async sendPayoutUpdateNotice(subscriberPhone, subscriberName, customMessage) {
         const text =
 `📢 *إشعار من منصة AD$ للتمويل الإعلاني*
