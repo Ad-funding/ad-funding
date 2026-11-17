@@ -1,4 +1,4 @@
-// telegramBot.js - إدارة بوت التيليجرام المتكامل (الدعم المباشر + الرد بـ Reply + زر الرد السريع + تنبيهات الحسابات + مسح السحوبات)
+// telegramBot.js - إدارة بوت التيليجرام المتكامل (الدعم المباشر + الرد المباشر بدون Reply + تنبيهات الحسابات + مسح السحوبات)
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -9,12 +9,13 @@ class TelegramBotManager {
         this.lastUpdateId = 0;
         this.isPolling = false;
         this.awaitingViaBtcForPhone = null;
+        this.awaitingReplyForClientId = null; // تفعيل وضع الرد المباشر لشات الناشرين
     }
 
     startListening() {
         if (!this.token || this.token.includes("ضع_توكن") || this.isPolling) return;
         this.isPolling = true;
-        console.log("✅ بوت التيليجرام متصل وجاهز لاستقبال الأوامر ورسائل الدعم المباشر والردود...");
+        console.log("✅ بوت التيليجرام متصل وجاهز لاستقبال الأوامر ورسائل الدعم والرد المباشر...");
         this.registerBotCommands();
         this.pollUpdates();
     }
@@ -159,21 +160,37 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
 
         const text = message.text.trim();
 
-        // التقاط الرد المباشر (Reply) أو الرد السريع من المدير
+        // 1. إذا قمت بالضغط على زر "✍️ رد على الناشر" سابقاً، فالرسالة التالية تُعتبر رداً مباشراً لهذا العميل دون الحاجة لـ Reply
+        if (this.awaitingReplyForClientId) {
+            const targetClientId = this.awaitingReplyForClientId;
+            this.awaitingReplyForClientId = null; // إعادة تعيين حالة الانتظار
+
+            if (text === "الغاء" || text === "إلغاء") {
+                await this.sendPlainMessage("❎ *تم إلغاء الرد.*");
+                return;
+            }
+
+            await this.onDecisionCallback(targetClientId, "support_admin_reply", text);
+            await this.sendPlainMessage(`✅ *تم إرسال ردك للناشر* (\`#${targetClientId}\`) *بنجاح!*`);
+            return;
+        }
+
+        // 2. التقاط الرد المباشر (Reply) التقليدي من تليجرام
         if (message.reply_to_message) {
             const repliedText = message.reply_to_message.text || message.reply_to_message.caption || "";
             const idMatch = repliedText.match(/#(pub_[a-zA-Z0-9_]+)/);
             if (idMatch && idMatch[1]) {
                 const targetClientId = idMatch[1];
                 await this.onDecisionCallback(targetClientId, "support_admin_reply", text);
-                await this.sendPlainMessage(`✅ *تم إرسال ردك للناشر بنجاح!*`);
+                await this.sendPlainMessage(`✅ *تم إرسال ردك للناشر* (\`#${targetClientId}\`) *بنجاح!*`);
                 return;
             }
         }
 
         if (text === "الغاء" || text === "إلغاء" || text === "/cancel") {
+            this.awaitingReplyForClientId = null;
             this.awaitingViaBtcForPhone = null;
-            await this.sendPlainMessage("❎ *تم إلغاء العملية.*");
+            await this.sendPlainMessage("❎ *تم إلغاء العمليات الحالية.*");
             return;
         }
 
@@ -423,7 +440,7 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
 ━━━━━━━━━━━━━━━━━━━━
 🆔 *معرف الجلسة:* #${clientId}
 ${publisherHint ? `👤 *بيانات الناشر:* ${publisherHint}\n` : ""}━━━━━━━━━━━━━━━━━━━━
-${text ? `📝 *الرسالة:*\n${text}\n━━━━━━━━━━━━━━━━━━━━\n` : ""}📌 *طريقة الرد:* اسحب هذه الرسالة لليسار واضغط (Reply) واكتب ردك، أو استخدم زر الرد أدناه.`;
+${text ? `📝 *الرسالة:*\n${text}\n━━━━━━━━━━━━━━━━━━━━\n` : ""}📌 *طريقة الرد:* اضغط زر (✍️ رد على الناشر) أدناه، أو اسحب الرسالة لليسار (Reply) واكتب ردك.`;
 
         const keyboard = {
             inline_keyboard: [
@@ -530,9 +547,9 @@ ${rawDestination !== cleanCopyableNumber ? `🔢 *التنسيق المقروء:
         const message = callbackQuery.message;
 
         if (action === "reply_prompt") {
-            this.awaitingReplyForClient = targetPhone;
+            this.awaitingReplyForClientId = targetPhone; // تفعيل وضع الرد المباشر بدون Reply
             await this.answerCallback(callbackQuery.id, "اكتب ردك الآن في المحادثة");
-            await this.sendPlainMessage(`✍️ *أرسل ردك الآن للعميل* \`#${targetPhone}\` *في رسالة عادية (أو استخدم Reply على رسالته الأصلية):*`);
+            await this.sendPlainMessage(`✍️ *أرسل ردك الآن للعميل* \`#${targetPhone}\` *في رسالة عادية (أو أرسل «إلغاء» للإلغاء):*`);
             return;
         }
 
