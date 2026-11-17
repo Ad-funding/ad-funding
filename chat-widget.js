@@ -379,7 +379,6 @@
         messagesEl.appendChild(notice);
         messagesEl.scrollTop = messagesEl.scrollHeight;
 
-        // توليد معرف جديد للجلسة القادمة
         const nextId = "pub_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now();
         localStorage.setItem(STORAGE_ID_KEY, nextId);
     }
@@ -399,7 +398,6 @@
     welcomePill.onclick = toggleChatWindow;
     closeBtn.onclick = () => { box.style.display = "none"; };
 
-    // إظهار فقاعة الترحيب المتحركة بعد ثانية واحدة
     setTimeout(() => {
         if (box.style.display !== "flex") {
             welcomePill.style.opacity = "1";
@@ -451,7 +449,6 @@
         const cleanText = (text || "").trim();
         if (!cleanText && !imageBase64) return;
 
-        // جلب اسم وهاتف الناشر إن كان مسجلاً دخوله في الصفحة
         const loggedName = document.getElementById("loggedUserName")?.textContent || "";
         const loggedPhone = document.getElementById("loggedUserPhone")?.textContent || document.getElementById("loginPhone")?.value || "";
 
