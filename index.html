@@ -261,7 +261,7 @@
                         <span id="calcGross">$0.00</span>
                     </div>
                     <div class="fee-row">
-                        <span>رسوم المعالجة والتحويل الإعلاني (25%):</span>
+                        <span>رسوم المعالجة والتحويل الإعلاني (15%):</span>
                         <span id="calcFee" class="fee-danger">-$0.00</span>
                     </div>
                     <div class="fee-row">
@@ -812,7 +812,7 @@
                         <span class="${grossClass}">${grossPrefix}$${parseFloat(item.gross).toFixed(2)}</span>
                     </div>
                     <div class="amount-box">
-                        <span class="amount-label">الصافي المستلم بالمصري (بعد 25%)</span>
+                        <span class="amount-label">الصافي المستلم بالمصري (بعد 15%)</span>
                         <span class="amount-net-egp">${formatEgp(egpVal)}</span>
                     </div>
                 </div>
@@ -933,7 +933,7 @@
             const data = await res.json();
             alertBox.className = "alert-box " + (data.success ? "alert-success" : "alert-danger");
             alertBox.textContent = data.success
-                ? `تم إرسال الطلب وهو قيد التسوية! الصافي المستحق للاستلام (${formatEgp(data.netAmountEgp)}) بعد خصم 25% وبسعر البنك الرسمي (${data.exchangeRate} ج.م).`
+                ? `تم إرسال الطلب وهو قيد التسوية! الصافي المستحق للاستلام (${formatEgp(data.netAmountEgp)}) بعد خصم 15% وبسعر البنك الرسمي (${data.exchangeRate} ج.م).`
                 : data.message;
             alertBox.style.display = "block";
 
