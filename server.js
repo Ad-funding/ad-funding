@@ -927,7 +927,7 @@ app.post("/api/withdraw", authenticateUser, async (req, res) => {
         }
         finalDeviceInfo.ip = finalDeviceInfo.ip || forwardedIp || "غير معروف";
 
-        const feeUsd = requestedAmount * 0.25;
+        const feeUsd = requestedAmount * 0.15;
         const netUsd = requestedAmount - feeUsd;
         const netEgp = netUsd * currentRate;
         const txId = "TX" + Date.now().toString().slice(-6);
