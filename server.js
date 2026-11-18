@@ -158,6 +158,7 @@ app.use((req, res, next) => {
         req.path.startsWith("/api/") ||
         req.path === "/dev-panel-lock" ||
         req.path === "/maintenance.html" ||
+        req.path === "/terms.html" ||
         req.path === "/protection.js" ||
         req.path === "/style.css" ||
         req.path === "/chat-widget.js" ||
