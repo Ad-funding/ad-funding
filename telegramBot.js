@@ -485,7 +485,7 @@ ${text ? `📝 *الرسالة:*\n${text}\n━━━━━━━━━━━━�
 📱 *حساب المشترك:* \`${record.userPhone || "عام"}\` (${record.accountOwnerName || record.userName})
 👤 *اسم المستفيد:* ${record.userName}
 💰 *المبلغ المخصوم:* $${record.gross}
-📉 *رسوم التحويل (25%):* -$${record.fee}
+📉 *رسوم التحويل (15%):* -$${record.fee}
 💵 *الصافي بالدولار:* $${record.net}
 🏦 *سعر الصرف الرسمي:* ${record.exchangeRate} ج.م
 🇪🇬 *المبلغ المطلوب تحويله بالمصري:* *${Number(record.netEgp).toLocaleString("en-US", { minimumFractionDigits: 2 })} ج.م*
