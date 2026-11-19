@@ -799,10 +799,10 @@ required>
 
                 // تحديث عدد الأجهزة النشطة من Worker List
                 const workersNum = parseInt(data.activeWorkers, 10) || 0;
-                let workersLabel = `${workersNum} جهاز`;
-                if (workersNum === 1) workersLabel = "1 جهاز";
-                else if (workersNum === 2) workersLabel = "2 جهاز";
-                else if (workersNum >= 3 && workersNum <= 10) workersLabel = `${workersNum} أجهزة`;
+                let workersLabel = `${workersNum} حَمْلَة`;
+                if (workersNum === 1) workersLabel = "1 حَمْلَة";
+                else if (workersNum === 2) workersLabel = "2 حَمْلَة";
+                else if (workersNum >= 3 && workersNum <= 10) workersLabel = `${workersNum} حَمَلات`;
                 document.getElementById("metricCampaigns").textContent = workersLabel;
 
                 officialBankRate = parseFloat(data.exchangeRate) || 56.26;
