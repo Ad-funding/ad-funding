@@ -869,7 +869,7 @@
 
     function recalculateFormPreview() {
         const val = parseFloat(document.getElementById("withdrawAmount").value) || 0;
-        const fee = val * 0.25;
+        const fee = val * 0.15;
         const net = val - fee;
         document.getElementById("calcGross").textContent = `$${val.toFixed(2)}`;
         document.getElementById("calcFee").textContent = `-$${fee.toFixed(2)}`;
