@@ -1,4 +1,4 @@
-// server.js - الملف الرئيسي المتكامل (تعدد المشتركين + شات الدعم المباشر + ألبوم KYC + واتساب OTP + ViaBTC + PWA)
+// server.js - الملف الرئيسي المتكامل (تعدد المشتركين + شات الدعم المباشر + ألبوم KYC + واتساب OTP + ViaBTC + Worker List + PWA)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -127,6 +127,7 @@ function ensureUserState(phone) {
         appState.usersState[phone] = {
             pendingDeduction: 0,
             lastViaBtcBalance: 0,
+            activeWorkersCount: 0, // عدد الأجهزة الفعلي من Worker List
             hardwareAlert: false,
             history: []
         };
@@ -334,8 +335,9 @@ const botManager = new TelegramBotManager(
                     const uSt = ensureUserState(u.phone);
                     const avail = getUserAvailableBalance(u.phone).toFixed(2);
                     const pend = (uSt.pendingDeduction || 0).toFixed(2);
+                    const workers = uSt.activeWorkersCount || 0;
                     const alertFlag = uSt.hardwareAlert ? " | ⚠️ تنبيه صيانة مفعّل" : "";
-                    txt += `${i + 1}. *${u.name}* (\`${u.phone}\`)\n   💵 المتاح: \`$${avail}\` | ⏳ المعلق: \`$${pend}\`${alertFlag}\n`;
+                    txt += `${i + 1}. *${u.name}* (\`${u.phone}\`)\n   💵 المتاح: \`$${avail}\` | ⏳ المعلق: \`$${pend}\` | 🖥️ الأجهزة: \`${workers}\`${alertFlag}\n`;
                 });
             }
 
@@ -500,7 +502,7 @@ app.post("/api/support/message", async (req, res) => {
 });
 
 // ============================================================================
-// 7. قراءة رصيد ViaBTC المستقل لكل مشترك (data-v-dbcf2a1c)
+// 7. قراءة رصيد ViaBTC وعدد الأجهزة (Worker List) لكل مشترك
 // ============================================================================
 function parseUsdFromTexts(texts) {
     for (const raw of texts) {
@@ -573,10 +575,16 @@ async function scrapeAllUsersViaBtc() {
                     }
                 });
 
-                await page.goto(user.viabtcUrl, { waitUntil: "networkidle2", timeout: 35000 });
+                // تحويل الرابط تلقائياً إلى صفحة Worker List إذا كان على الصفحة الرئيسية للمراقب
+                let targetObserverUrl = user.viabtcUrl;
+                if (targetObserverUrl.includes("/observer/dashboard")) {
+                    targetObserverUrl = targetObserverUrl.replace("/observer/dashboard", "/observer/worker");
+                }
+
+                await page.goto(targetObserverUrl, { waitUntil: "networkidle2", timeout: 35000 });
                 try {
-                    await page.waitForSelector("[data-v-dbcf2a1c]", { timeout: 10000 });
-                    await new Promise(r => setTimeout(r, 2000));
+                    await page.waitForSelector("[data-v-dbcf2a1c], table, .el-table__row", { timeout: 10000 });
+                    await new Promise(r => setTimeout(r, 2500));
                 } catch {}
 
                 const domResult = await page.evaluate(() => {
@@ -584,9 +592,42 @@ async function scrapeAllUsersViaBtc() {
                     const texts = nodes
                         .map(el => (el.innerText || el.textContent || "").trim())
                         .filter(t => t.length > 0 && /[0-9]/.test(t));
+
+                    const bodyText = document.body.innerText || "";
                     const mainArea = document.querySelector(".l-observer-main");
-                    return { texts, mainText: mainArea ? mainArea.innerText : "" };
+
+                    // البحث عن عدد الأجهزة النشطة (Active / Total Workers) في النص أو جدول العمال
+                    let workersCount = null;
+                    const activeMatch = bodyText.match(/(?:Active|Online|All)\s*(?:Workers?)?\s*[:\(]?\s*(\d+)/i);
+                    if (activeMatch && activeMatch[1]) {
+                        workersCount = parseInt(activeMatch[1], 10);
+                    } else {
+                        const tableRows = document.querySelectorAll(".el-table__body-wrapper tbody tr");
+                        if (tableRows.length > 0) {
+                            workersCount = tableRows.length;
+                        }
+                    }
+
+                    return { texts, mainText: mainArea ? mainArea.innerText : bodyText, workersCount };
                 });
+
+                // استخراج عدد الأجهزة من استجابات API الداخلية لـ ViaBTC كخيار أدق
+                let detectedWorkers = domResult.workersCount;
+                if (interceptedApis.length > 0) {
+                    for (const apiItem of interceptedApis) {
+                        const d = apiItem.data;
+                        if (d && typeof d === "object") {
+                            if (typeof d.active === "number") { detectedWorkers = d.active; break; }
+                            if (typeof d.total === "number" && apiItem.url.includes("worker")) { detectedWorkers = d.total; break; }
+                            if (Array.isArray(d.data) && apiItem.url.includes("worker")) { detectedWorkers = d.data.length; break; }
+                        }
+                    }
+                }
+
+                const uState = ensureUserState(user.phone);
+                if (detectedWorkers !== null && !isNaN(detectedWorkers)) {
+                    uState.activeWorkersCount = detectedWorkers;
+                }
 
                 let detectedUsd = parseUsdFromTexts(domResult.texts);
                 if (detectedUsd === null && domResult.mainText) {
@@ -607,18 +648,19 @@ async function scrapeAllUsersViaBtc() {
                 lastDebugInfo.checkedUsers[user.phone] = {
                     name: user.name,
                     extractedUsd: detectedUsd,
+                    activeWorkers: uState.activeWorkersCount,
                     matchedElements: domResult.texts.slice(0, 8)
                 };
 
                 if (detectedUsd !== null && !isNaN(detectedUsd)) {
-                    const uState = ensureUserState(user.phone);
                     if (uState.lastViaBtcBalance > 0 && detectedUsd < uState.lastViaBtcBalance) {
                         const diff = uState.lastViaBtcBalance - detectedUsd;
                         uState.pendingDeduction = Math.max(0, uState.pendingDeduction - diff);
                     }
                     uState.lastViaBtcBalance = detectedUsd;
-                    saveState();
                 }
+
+                saveState();
             } catch (e) {
                 console.error(`خطأ قراءة ViaBTC للمشترك ${user.phone}:`, e.message);
             } finally {
@@ -864,6 +906,7 @@ app.get("/api/balance", authenticateUser, (req, res) => {
         accountName: req.currentUser.name,
         accountPhone: phone,
         balance: getUserAvailableBalance(phone).toFixed(2),
+        activeWorkers: uState.activeWorkersCount || 0,
         exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
         hardwareAlert: Boolean(uState.hardwareAlert),
         hardwareAlertMessage: "تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة الكمبيوتر في اقرب وقت للحفاظ علي معدل الربح الأعلاني والناشرين في أسرع وقت.",
