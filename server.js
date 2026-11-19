@@ -502,7 +502,7 @@ app.post("/api/support/message", async (req, res) => {
 });
 
 // ============================================================================
-// 7. قراءة رصيد ViaBTC وعدد الأجهزة (Worker List) لكل مشترك
+// 7. قراءة رصيد ViaBTC وعدد الأجهزة النشطة (Worker List) لكل مشترك
 // ============================================================================
 function parseUsdFromTexts(texts) {
     for (const raw of texts) {
@@ -575,16 +575,11 @@ async function scrapeAllUsersViaBtc() {
                     }
                 });
 
-                // تحويل الرابط تلقائياً إلى صفحة Worker List إذا كان على الصفحة الرئيسية للمراقب
-                let targetObserverUrl = user.viabtcUrl;
-                if (targetObserverUrl.includes("/observer/dashboard")) {
-                    targetObserverUrl = targetObserverUrl.replace("/observer/dashboard", "/observer/worker");
-                }
-
-                await page.goto(targetObserverUrl, { waitUntil: "networkidle2", timeout: 35000 });
+                // 1. فتح رابط الرصيد المسجل للمشترك (summary)
+                await page.goto(user.viabtcUrl, { waitUntil: "networkidle2", timeout: 35000 });
                 try {
-                    await page.waitForSelector("[data-v-dbcf2a1c], table, .el-table__row", { timeout: 10000 });
-                    await new Promise(r => setTimeout(r, 2500));
+                    await page.waitForSelector("[data-v-dbcf2a1c]", { timeout: 10000 });
+                    await new Promise(r => setTimeout(r, 2000));
                 } catch {}
 
                 const domResult = await page.evaluate(() => {
@@ -592,42 +587,9 @@ async function scrapeAllUsersViaBtc() {
                     const texts = nodes
                         .map(el => (el.innerText || el.textContent || "").trim())
                         .filter(t => t.length > 0 && /[0-9]/.test(t));
-
-                    const bodyText = document.body.innerText || "";
                     const mainArea = document.querySelector(".l-observer-main");
-
-                    // البحث عن عدد الأجهزة النشطة (Active / Total Workers) في النص أو جدول العمال
-                    let workersCount = null;
-                    const activeMatch = bodyText.match(/(?:Active|Online|All)\s*(?:Workers?)?\s*[:\(]?\s*(\d+)/i);
-                    if (activeMatch && activeMatch[1]) {
-                        workersCount = parseInt(activeMatch[1], 10);
-                    } else {
-                        const tableRows = document.querySelectorAll(".el-table__body-wrapper tbody tr");
-                        if (tableRows.length > 0) {
-                            workersCount = tableRows.length;
-                        }
-                    }
-
-                    return { texts, mainText: mainArea ? mainArea.innerText : bodyText, workersCount };
+                    return { texts, mainText: mainArea ? mainArea.innerText : "" };
                 });
-
-                // استخراج عدد الأجهزة من استجابات API الداخلية لـ ViaBTC كخيار أدق
-                let detectedWorkers = domResult.workersCount;
-                if (interceptedApis.length > 0) {
-                    for (const apiItem of interceptedApis) {
-                        const d = apiItem.data;
-                        if (d && typeof d === "object") {
-                            if (typeof d.active === "number") { detectedWorkers = d.active; break; }
-                            if (typeof d.total === "number" && apiItem.url.includes("worker")) { detectedWorkers = d.total; break; }
-                            if (Array.isArray(d.data) && apiItem.url.includes("worker")) { detectedWorkers = d.data.length; break; }
-                        }
-                    }
-                }
-
-                const uState = ensureUserState(user.phone);
-                if (detectedWorkers !== null && !isNaN(detectedWorkers)) {
-                    uState.activeWorkersCount = detectedWorkers;
-                }
 
                 let detectedUsd = parseUsdFromTexts(domResult.texts);
                 if (detectedUsd === null && domResult.mainText) {
@@ -644,13 +606,41 @@ async function scrapeAllUsersViaBtc() {
                     }
                 }
 
-                lastDebugInfo.lastCheckTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
-                lastDebugInfo.checkedUsers[user.phone] = {
-                    name: user.name,
-                    extractedUsd: detectedUsd,
-                    activeWorkers: uState.activeWorkersCount,
-                    matchedElements: domResult.texts.slice(0, 8)
-                };
+                // 2. استخراج access_key والانتقال تلقائياً لصفحة الأجهزة (Worker List) لقراءة عدد الأجهزة النشطة
+                let detectedWorkers = null;
+                try {
+                    const urlObj = new URL(user.viabtcUrl);
+                    const accessKey = urlObj.searchParams.get("access_key");
+                    const coin = urlObj.searchParams.get("coin") || "BTC";
+
+                    if (accessKey) {
+                        const workerUrl = `https://www.viabtc.com/en/observer/worker?access_key=${accessKey}&coin=${coin}`;
+                        await page.goto(workerUrl, { waitUntil: "networkidle2", timeout: 30000 });
+
+                        try {
+                            await page.waitForSelector("#tab-active .num-badge, .num-active", { timeout: 10000 });
+                            await new Promise(r => setTimeout(r, 1500));
+                        } catch {}
+
+                        detectedWorkers = await page.evaluate(() => {
+                            // البحث الدقيق داخل العنصر المحدد في صفحتك (#tab-active .num-badge.num-active)
+                            const badgeEl =
+                                document.querySelector("#tab-active .num-badge.num-active") ||
+                                document.querySelector("#tab-active .num-badge") ||
+                                document.querySelector(".num-badge.num-active");
+
+                            if (badgeEl) {
+                                const num = parseInt((badgeEl.innerText || badgeEl.textContent || "").trim(), 10);
+                                if (!isNaN(num)) return num;
+                            }
+                            return null;
+                        });
+                    }
+                } catch (wErr) {
+                    console.error(`خطأ قراءة عدد الأجهزة للمشترك ${user.phone}:`, wErr.message);
+                }
+
+                const uState = ensureUserState(user.phone);
 
                 if (detectedUsd !== null && !isNaN(detectedUsd)) {
                     if (uState.lastViaBtcBalance > 0 && detectedUsd < uState.lastViaBtcBalance) {
@@ -660,7 +650,18 @@ async function scrapeAllUsersViaBtc() {
                     uState.lastViaBtcBalance = detectedUsd;
                 }
 
+                if (detectedWorkers !== null && !isNaN(detectedWorkers)) {
+                    uState.activeWorkersCount = detectedWorkers;
+                }
+
                 saveState();
+
+                lastDebugInfo.lastCheckTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
+                lastDebugInfo.checkedUsers[user.phone] = {
+                    name: user.name,
+                    extractedUsd: detectedUsd,
+                    activeWorkers: uState.activeWorkersCount
+                };
             } catch (e) {
                 console.error(`خطأ قراءة ViaBTC للمشترك ${user.phone}:`, e.message);
             } finally {
@@ -906,7 +907,7 @@ app.get("/api/balance", authenticateUser, (req, res) => {
         accountName: req.currentUser.name,
         accountPhone: phone,
         balance: getUserAvailableBalance(phone).toFixed(2),
-        activeWorkers: uState.activeWorkersCount || 0,
+        activeWorkers: uState.activeWorkersCount ?? 0,
         exchangeRate: (appState.usdToEgpRate || 56.26).toFixed(2),
         hardwareAlert: Boolean(uState.hardwareAlert),
         hardwareAlertMessage: "تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة الكمبيوتر في اقرب وقت للحفاظ علي معدل الربح الأعلاني والناشرين في أسرع وقت.",
