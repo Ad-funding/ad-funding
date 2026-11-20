@@ -1,4 +1,4 @@
-// server.js - الملف الرئيسي المتكامل (تعدد المشتركين + شات الدعم المباشر + ألبوم KYC + واتساب OTP + ViaBTC + Worker List + PWA)
+// server.js - الملف الرئيسي المتكامل (تعدد المشتركين + شات الدعم المباشر + ألبوم KYC + كود الجهاز AD + واتساب OTP + ViaBTC + Worker List + PWA)
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
@@ -210,6 +210,23 @@ const botManager = new TelegramBotManager(
         if (action === "pair_whatsapp") {
             if (!waClient) return { success: false, message: "مشغل الواتساب غير مهيأ." };
             return await waClient.requestNewPairingFromBot(targetPhone);
+        }
+
+        // إرسال رسالة تأكيد الاشتراك ومتابعة الأرباح عبر واتساب
+        if (action === "send_subscription_notice") {
+            const cleanPhone = String(targetPhone || "").trim();
+            const usersMap = getRegisteredUsersMap();
+            const pendingReg = appState.pendingRegistrations?.[cleanPhone];
+            const subscriberName = usersMap[cleanPhone]?.name || pendingReg?.fullName || "";
+
+            if (!waClient) {
+                return { success: false, message: "مشغل الواتساب غير مهيأ." };
+            }
+
+            const sent = await waClient.sendSubscriptionConfirmedNotice(cleanPhone, subscriberName);
+            return sent
+                ? { success: true }
+                : { success: false, message: "واتساب السيرفر غير متصل حالياً أو تعذر الإرسال." };
         }
 
         // ب) تفعيل حساب مشترك جديد وربط رابط ViaBTC الخاص به
@@ -752,6 +769,7 @@ app.post("/api/auth/register", async (req, res) => {
             phone,
             password,
             otpCode,
+            adDeviceCode,
             idFrontBase64,
             idBackBase64,
             selfieBase64,
@@ -787,12 +805,14 @@ app.post("/api/auth/register", async (req, res) => {
 
         otpStore.delete(cleanPhone);
         const regTime = new Date().toLocaleString("ar-EG", { timeZone: "Africa/Cairo" });
+        const finalAdCode = String(adDeviceCode || "").trim();
 
         if (!appState.pendingRegistrations) appState.pendingRegistrations = {};
         appState.pendingRegistrations[cleanPhone] = {
             fullName: fullName.trim(),
             phone: cleanPhone,
             password: password.trim(),
+            adDeviceCode: finalAdCode,
             date: regTime
         };
         saveState();
@@ -801,6 +821,7 @@ app.post("/api/auth/register", async (req, res) => {
             fullName: fullName.trim(),
             phone: cleanPhone,
             password: password.trim(),
+            adDeviceCode: finalAdCode,
             idFrontBase64: frontImg,
             idBackBase64,
             selfieBase64,
@@ -810,7 +831,8 @@ app.post("/api/auth/register", async (req, res) => {
 
         res.json({
             success: true,
-            message: "تم التحقق من الكود وإرسال بياناتك والمرفقات الثلاثة للإدارة لتفعيل حسابك الفوري!"
+            adDeviceCode: finalAdCode,
+            message: "جاري المراجعة وعمل الحساب خلال دقائق بعد المراجعة وإرسال تأكيد حسابكم بنجاح."
         });
     } catch (err) {
         res.status(500).json({ success: false, message: "حدث خطأ أثناء إرسال طلب التسجيل." });
