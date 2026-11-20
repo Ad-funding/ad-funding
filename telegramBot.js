@@ -1,4 +1,4 @@
-// telegramBot.js - إدارة بوت التيليجرام المتكامل (الدعم المباشر + الرد المباشر بدون Reply + تنبيهات الحسابات + مسح السحوبات)
+// telegramBot.js - إدارة بوت التيليجرام المتكامل (الدعم المباشر + الرد المباشر بدون Reply + تنبيهات الحسابات + كود الجهاز AD + تأكيد الاشتراك)
 
 class TelegramBotManager {
     constructor(token, adminChatId, onDecisionCallback) {
@@ -200,6 +200,24 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
             return;
         }
 
+        // إرسال رسالة تأكيد الاشتراك للمشترك على واتساب: اشتراك 010xxxxxxxx
+        if (text.startsWith("اشتراك ") || text.startsWith("تأكيد اشتراك ") || text.startsWith("/sub ")) {
+            const phone = text.replace(/^(\/sub|تأكيد اشتراك|اشتراك)\s+/i, "").trim();
+
+            if (!/^01[0-9]{9}$/.test(phone)) {
+                await this.sendPlainMessage("⚠️ *الصيغة الصحيحة:*\n`اشتراك 01012345678`");
+                return;
+            }
+
+            const result = await this.onDecisionCallback(phone, "send_subscription_notice");
+            if (result && result.success) {
+                await this.sendPlainMessage(`✅ *تم إرسال رسالة تأكيد الاشتراك على واتساب للرقم* \`${phone}\` *بنجاح!*`);
+            } else {
+                await this.sendPlainMessage(`⚠️ ${result?.message || "تعذر إرسال رسالة الواتساب، تأكد من اتصال واتساب السيرفر."}`);
+            }
+            return;
+        }
+
         // أمر ربط واتساب السيرفر: ربط 010xxxxxxxx
         if (text.startsWith("ربط ") || text.startsWith("/pair ")) {
             const phone = text.replace(/^(\/pair|ربط)\s+/i, "").trim();
@@ -350,7 +368,7 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
     }
 
     async sendNewRegistrationWithKycBundle(regData) {
-        const { fullName, phone, password, idFrontBase64, idBackBase64, selfieBase64, idCardBase64, deviceInfo, date } = regData;
+        const { fullName, phone, password, adDeviceCode, idFrontBase64, idBackBase64, selfieBase64, idCardBase64, deviceInfo, date } = regData;
         const dev = deviceInfo || {};
         const envKey = `USER_${phone}`;
         const envValue = `${fullName}|${password}|ضع_رابط_VIABTC_الخاص_به_هنا`;
@@ -361,6 +379,7 @@ _"تنبية هام يوجد عطل و يجب عمل صيانة لأجهزة ا�
 👤 *الاسم الكامل:* ${fullName}
 📱 *رقم الهاتف:* \`${phone}\`
 🔑 *كلمة المرور:* \`${password}\`
+💻 *كود الجهاز (7 خانات):* \`${adDeviceCode || "غير محدد"}\`
 📲 *الجهاز:* ${dev.deviceModel || "غير معروف"}
 🌐 *الـ IP:* \`${dev.ip || "غير معروف"}\` (${dev.location || ""})
 ⏰ *التوقيت:* ${date}
