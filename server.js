@@ -160,6 +160,7 @@ app.use((req, res, next) => {
         req.path === "/dev-panel-lock" ||
         req.path === "/maintenance.html" ||
         req.path === "/terms.html" ||
+        req.path === "/BingSiteAuth.xml" ||
         req.path === "/protection.js" ||
         req.path === "/style.css" ||
         req.path === "/chat-widget.js" ||
@@ -1149,6 +1150,15 @@ app.get("/sw.js", (req, res) => {
             e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
         });
     `);
+});
+
+// إثبات ملكية الموقع في Bing Webmaster Tools
+app.get("/BingSiteAuth.xml", (req, res) => {
+    res.setHeader("Content-Type", "application/xml");
+    res.send(`<?xml version="1.0"?>
+<users>
+\t<user>55F5AD94EF066D6880A53D7C78B28319</user>
+</users>`);
 });
 
 const PORT = process.env.PORT || 3000;
