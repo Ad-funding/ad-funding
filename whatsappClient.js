@@ -191,7 +191,7 @@ class WhatsAppOtpSender {
         }
     }
 
-    // تجهيز الـ JID وتنشيط الاتصال المباشر قبل الإرسال (نفس منطقك الناجح)
+    // تجهيز الـ JID وتنشيط الاتصال المباشر قبل الإرسال
     async resolveAndWarmupJid(subscriberPhone) {
         const intlPhone = this.formatEgyptianPhone(subscriberPhone);
         let targetJid = `${intlPhone}@s.whatsapp.net`;
@@ -266,6 +266,27 @@ ${customMessage}`;
             await this.sock.sendMessage(targetJid, { text });
             return true;
         } catch (e) {
+            return false;
+        }
+    }
+
+    // 4. إرسال رسالة تأكيد الاشتراك وإمكانية متابعة الأرباح عبر واتساب
+    async sendSubscriptionConfirmedNotice(subscriberPhone, subscriberName) {
+        if (!this.isConnected || !this.sock) return false;
+        try {
+            const targetJid = await this.resolveAndWarmupJid(subscriberPhone);
+            const namePart = subscriberName ? `أ/ *${subscriberName}*،\n` : "";
+            const text =
+`🎉 *تم الاشتراك بنجاح — منصة AD$ للتمويل الإعلاني*
+━━━━━━━━━━━━━━━━━━━━
+${namePart}تم تأكيد اشتراكك وتفعيل حسابك بنجاح ✅
+يمكنك الآن تسجيل الدخول ومتابعة أرباحك وحملاتك بشكل طبيعي في أي وقت.`;
+
+            await this.sock.sendMessage(targetJid, { text });
+            console.log(`✅ تم إرسال رسالة تأكيد الاشتراك عبر واتساب إلى: ${subscriberPhone}`);
+            return true;
+        } catch (err) {
+            console.error("فشل إرسال رسالة تأكيد الاشتراك:", err.message);
             return false;
         }
     }
